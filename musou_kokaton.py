@@ -137,6 +137,41 @@ class Bullet(pg.sprite.Sprite):
             self.kill()
 
 
+class FreeBullet(pg.sprite.Sprite):
+    """
+    弾幕に関するクラス
+    """
+
+    def __init__(self, x: int, y: int, vector: tuple, color: tuple, rad: int):
+        """
+        弾幕円Surfaceを生成する
+        引数1 x座標
+        引数2 y座標
+        引数3 動かしたい方向ベクトル
+        引数4 色（RGB）
+        引数5 円の半径
+        """
+        super().__init__()
+        self.image = pg.Surface((2*rad, 2*rad))
+        pg.draw.circle(self.image, color, (rad, rad), rad)
+        self.image.set_colorkey((0, 0, 0))
+        self.rect = self.image.get_rect()
+        # 爆弾を投下するemyから見た攻撃対象のbirdの方向を計算
+        self.vx, self.vy = vector
+        self.rect.centerx = x
+        self.rect.centery = y
+        self.speed = 6
+
+    def update(self):
+        """
+        爆弾を速度ベクトルself.vx, self.vyに基づき移動させる
+        引数 screen：画面Surface
+        """
+        self.rect.move_ip(self.speed*self.vx, self.speed*self.vy)
+        if check_bound(self.rect) != (True, True):
+            self.kill()
+
+
 class Beam(pg.sprite.Sprite):
     """
     ビームに関するクラス
@@ -273,9 +308,9 @@ class HP(pg.sprite.Sprite):
         """ 
         if not self.victory:
             color = (0, 255, 0)
-            if self.hp / self.max <= 0.1:
+            if self.hp / self.max <= 0.3:
                 color = (255, 0, 0)
-            elif self.hp / self.max <= 0.5:
+            elif self.hp / self.max <= 0.6:
                 color = (255, 255, 0)
             pg.draw.rect(screen, (255, 255, 255), self.frame)
             pg.draw.rect(screen, (0, 0, 0), self.bar)
