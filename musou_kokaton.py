@@ -1,4 +1,5 @@
 import math
+import numpy as np
 import os
 import random
 import sys
@@ -123,6 +124,49 @@ class Bullet(pg.sprite.Sprite):
         self.rect = self.image.get_rect()
         # 爆弾を投下するemyから見た攻撃対象のbirdの方向を計算
         self.vx, self.vy = calc_orientation(emy.rect, bird.rect)  
+        self.rect.centerx = emy.rect.centerx
+        self.rect.centery = emy.rect.centery+emy.rect.height//2
+        self.speed = 6
+
+    def update(self):
+        """
+        爆弾を速度ベクトルself.vx, self.vyに基づき移動させる
+        引数 screen：画面Surface
+        """
+        self.rect.move_ip(self.speed*self.vx, self.speed*self.vy)
+        if check_bound(self.rect) != (True, True):
+            self.kill()
+
+
+class CircleBomb(pg.sprite.Sprite):
+    def __init__(self, emy: "Enemy", bird: Bird):
+        """
+        爆弾円Surfaceを生成する
+        引数1 emy：爆弾を投下する敵機
+        引数2 bird：攻撃対象のこうかとん
+        """
+        super().__init__()
+        rad = 10  # 爆弾円の半径：10以上50以下の乱数
+        cb_lst=[]
+        for _ in range(8):
+            self.image = pg.Surface((2*rad, 2*rad))
+            color = (255, 0, 0)
+            pg.draw.circle(self.image, color, (rad, rad), rad)
+            self.image.set_colorkey((0, 0, 0))
+            cb_lst.append(self.image)
+        self.rect = self.image.get_rect()
+        for i in range(0,360,45):
+            print(i)
+        angle_lst=[]
+        # 爆弾を投下するemyから見た攻撃対象のbirdの方向を計算
+        self.vx, self.vy = calc_orientation(emy.rect, bird.rect)
+        vector = np.array([self.vx,self.vy])
+        for i in range(0,360,45):
+            radi=np.deg2rad(i)
+            rot = np.array([[math.cos(radi), -math.sin(radi)],
+                        [math.sin(radi), math.cos(radi)]])
+            res = np.dot(rot, vector) 
+            angle_lst.append(res)
         self.rect.centerx = emy.rect.centerx
         self.rect.centery = emy.rect.centery+emy.rect.height//2
         self.speed = 6
