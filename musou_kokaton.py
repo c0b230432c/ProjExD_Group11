@@ -1,3 +1,4 @@
+import cv2
 import math
 import os
 import random
@@ -196,17 +197,19 @@ class Explosion(pg.sprite.Sprite):
 
 
 class Enemy(pg.sprite.Sprite):
+    
     """
     敵機に関するクラス
     """
-
+    imgs = [pg.image.load(f"fig/alien{i}.png") for i in range(1, 4)]
+    
     def __init__(self):
         super().__init__()
-        self.image = pg.transform.rotozoom(pg.image.load(f"fig/E_2.png"), 0, 0.2)
+        self.image = pg.transform.rotozoom(random.choice(__class__.imgs), 0, 0.8)
         self.rect = self.image.get_rect()
-        self.rect.center = WIDTH//2, 0
+        self.rect.center = random.randint(0, WIDTH), 0
         self.vx, self.vy = 0, +6
-        self.bound = HEIGHT//4-50 # 停止位置
+        self.bound = random.randint(50, HEIGHT//2-100)  # 停止位置
         self.state = "down"  # 降下状態or停止状態
         self.interval = random.randint(50, 300)  # 爆弾投下インターバル
 
@@ -222,124 +225,118 @@ class Enemy(pg.sprite.Sprite):
         self.rect.move_ip(self.vx, self.vy)
 
 
-# class Score:
-#     """
-#     打ち落とした爆弾，敵機の数をスコアとして表示するクラス
-#     爆弾：1点
-#     敵機：10点
-#     """
-#     def __init__(self):
-#         self.font = pg.font.Font(None, 50)
-#         self.color = (0, 0, 255)
-#         self.value = 0
-#         self.image = self.font.render(f"Score: {self.value}", 0, self.color)
-#         self.rect = self.image.get_rect()
-#         self.rect.center = 100, HEIGHT-50
-
-#     def update(self, screen: pg.Surface):
-#         self.image = self.font.render(f"Score: {self.value}", 0, self.color)
-#         screen.blit(self.image, self.rect)
-
-
-class HP(pg.sprite.Sprite):
+class Score:
     """
-    HPバーの処理
+    打ち落とした爆弾，敵機の数をスコアとして表示するクラス
+    爆弾：1点
+    敵機：10点
     """
-    def __init__(self, x, y, width, now, max):
-        """
-        hpバーを表示するための設定を行う関数
-        引数：(x座標,y座標,HPバーの幅,今のHP,最大HP)
-        """
-        self.x = x
-        self.y = y
-        self.width = width
-        self.max = max # 最大HP
-        self.hp = now # HP
-        self.victory = False
-        self.mark = int((self.width - 4) / self.max) # HPバーの1目盛り
-        self.font = pg.font.SysFont(None, 28)
-        self.label = self.font.render("HP", True, (255, 255, 255))
-        self.frame = pg.Rect(self.x + 2 + self.label.get_width(), self.y, self.width, self.label.get_height())
-        self.bar = pg.Rect(self.x + 4 + self.label.get_width(), self.y + 2, self.width - 4, self.label.get_height() - 4)
-        self.value = pg.Rect(self.x + 4 + self.label.get_width(), self.y + 2, self.width - 4, self.label.get_height() - 4)
-        self.value.width = self.width * (self.hp / self.max)
-        if self.hp <= 0:
-            self.victory=True
+    def __init__(self):
+        self.font = pg.font.Font(None, 50)
+        self.color = (0, 0, 255)
+        self.value = 0
+        self.image = self.font.render(f"Score: {self.value}", 0, self.color)
+        self.rect = self.image.get_rect()
+        self.rect.center = 100, HEIGHT-50
 
-    def hp_draw(self, screen):
+    def update(self, screen: pg.Surface):
+        self.image = self.font.render(f"Score: {self.value}", 0, self.color)
+        screen.blit(self.image, self.rect)
+
+
+class Special:
+    """
+    必殺技に関するクラス
+    """
+    def __init__(self):
+        SPECIAL_LIVES = 3
+        self.lives = SPECIAL_LIVES  # 必殺技の初期残機数
+        self.font = pg.font.Font(None, 50)
+        self.color = (255, 0, 0)
+        self.image = self.font.render(f"SPECIAL: {self.lives}", 0, self.color)
+        self.rect = self.image.get_rect()
+        self.rect.center = WIDTH - 100, HEIGHT - 50
+
+    def update(self, screen: pg.Surface):
         """
-        HPバーを表示する関数
-        引数：screen
-        """ 
-        if not self.victory:
-            color = (0, 255, 0)
-            if self.hp / self.max <= 0.1:
-                color = (255, 0, 0)
-            elif self.hp / self.max <= 0.5:
-                color = (255, 255, 0)
-            pg.draw.rect(screen, (255, 255, 255), self.frame)
-            pg.draw.rect(screen, (0, 0, 0), self.bar)
-            pg.draw.rect(screen, color, self.value)
-            screen.blit(self.label, (self.x, self.y))
+        必殺技残機数を画面に表示
+        """
+        self.image = self.font.render(f"SPECIAL: {self.lives}", 0, self.color) # 残機更新のため必要
+        screen.blit(self.image, self.rect)
+
+    def use(self, bombs: pg.sprite.Group, screen: pg.Surface):
+        """
+        必殺技を使用し、爆弾をすべて消去
+        """
+        if self.lives > 0: # 必殺技残機が残っているなら
+            self.lives -= 1 # 必殺技残機を1減らす
+            self.play_video(screen) # ゲーム停止と動画再生
+            bombs.empty() # 爆弾をすべて消去
+
+    def play_video(self, screen: pg.Surface):
+        """
+        ゲームを一時停止し、動画を再生
+        """
+        video_path = "fig/proen_kari.mp4"  # 動画パス
+        cap = cv2.VideoCapture(video_path) # cv2の動画を読み込むメソッド
+        while cap.isOpened(): # 動画が再生されている間
+            ret, frame = cap.read() # 1フレームごとに動画を読み込み(frame=1フレームごとの画像データ)
+            if not ret: # フレームが読み込めなかったら
+                break # 動画が終了した際にフレームが読み込めなくなるのでWhileから出ないとエラーが起きる
+            # OpenCVのBGR形式をPygameのSurface形式に変換
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            frame = cv2.transpose(frame) # 画像データの回転-->surfaceに変換するのに必要
+            frame = pg.surfarray.make_surface(frame)
+            screen.blit(frame, (0, 250))
+            pg.display.update()
+            pg.time.delay(int(500 / 30))  # 30FPS
+        cap.release() #動画ファイルを閉じる
+    time.sleep(3)  # ゲーム停止時間
 
 
 def main():
     pg.display.set_caption("真！こうかとん無双")
     screen = pg.display.set_mode((WIDTH, HEIGHT))
     bg_img = pg.image.load(f"fig/background01.png")  # デフォルトではpb_bg.jpg
-    # score = Score()
+    score = Score()
+    special = Special()  # 必殺技管理クラス
 
-    bird = Bird(3, (WIDTH/2, HEIGHT-100))  # こうかとん出現場所
+    bird = Bird(3, (WIDTH / 2, HEIGHT - 100))  # こうかとん出現場所
     bombs = pg.sprite.Group()
     beams = pg.sprite.Group()
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
-    max_hp = 200  #敵機の最大HP
-    hp=max_hp  #現在の敵機のHP
 
     tmr = 0
     clock = pg.time.Clock()
     while True:
-        hp_bar = HP(WIDTH - 250, 20, 200, hp, max_hp)
         key_lst = pg.key.get_pressed()
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 return 0
-            if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
-                beams.add(Beam(bird))
+            if event.type == pg.KEYDOWN:
+                if event.key == pg.K_SPACE:
+                    beams.add(Beam(bird))
+                if event.key == pg.K_RSHIFT and special.lives > 0:  # Bキーで必殺技発動
+                    special.use(bombs, screen)
+
         screen.blit(bg_img, [0, 0])
 
-        if tmr == 0:  # 200フレームに敵を出現させる
+        if tmr == 0:  # 200フレームに1回，敵機を出現させる
             emys.add(Enemy())
 
         for emy in emys:
-            if emy.state == "stop" and tmr%emy.interval == 0:
-                # 敵機が停止状態に入ったら，intervalに応じて爆弾投下
+            if emy.state == "stop" and tmr % emy.interval == 0:
                 bombs.add(Bullet(emy, bird))
 
-        for emy in pg.sprite.groupcollide(emys, beams, False, True).keys():  # ビームと衝突した敵機リスト
-            # exps.add(Explosion(emy, 100))  # 爆発エフェクト
-            # score.value += 10  # 10点アップ
-            hp -= 10
-            if hp <= 0:
-                hp_bar.victory = True
+        for emy in pg.sprite.groupcollide(emys, beams, True, True).keys():  # ビームと衝突した敵機リスト
+            exps.add(Explosion(emy, 100))  # 爆発エフェクト
+            score.value += 10  # 10点アップ
             bird.change_img(6, screen)  # こうかとん喜びエフェクト
-
-        # for bomb in pg.sprite.groupcollide(bombs, beams, True, True).keys():  # ビームと衝突した爆弾リスト
-        #     exps.add(Explosion(bomb, 50))  # 爆発エフェクト
-        #     score.value += 1  # 1点アップ
-        #コメントアウト理由:弾幕は消さない仕様にするため
 
         for bomb in pg.sprite.spritecollide(bird, bombs, True):  # こうかとんと衝突した爆弾リスト
             bird.change_img(8, screen)  # こうかとん悲しみエフェクト
-            # score.update(screen)
-            pg.display.update()
-            time.sleep(2)
-            return
-        
-        if hp_bar.victory:#HPが0の時
-            bird.change_img(6, screen)  # こうかとん悲しみエフェクト
-            # score.update(screen)
+            score.update(screen)
             pg.display.update()
             time.sleep(2)
             return
@@ -353,12 +350,11 @@ def main():
         bombs.draw(screen)
         exps.update()
         exps.draw(screen)
-        # score.update(screen)
-        hp_bar.hp_draw(screen)
+        score.update(screen)
+        special.update(screen)  # 必殺技残機の表示
         pg.display.update()
         tmr += 1
         clock.tick(50)
-
 
 if __name__ == "__main__":
     pg.init()
