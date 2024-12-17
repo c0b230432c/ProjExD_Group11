@@ -139,6 +139,8 @@ class Bullet(pg.sprite.Sprite):
 
 
 class AngleBomb(pg.sprite.Sprite):
+    colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (255, 0, 255), (0, 255, 255)]
+
     def __init__(self, emy: "Enemy", bird: Bird, angle: int):
         """
         爆弾円Surfaceを生成する
@@ -149,7 +151,7 @@ class AngleBomb(pg.sprite.Sprite):
         super().__init__()
         rad = 10  # 爆弾円の半径：10以上50以下の乱数
         self.image = pg.Surface((2*rad, 2*rad))
-        color = (255, 0, 0)
+        color = random.choice(__class__.colors)  # 爆弾円の色：クラス変数からランダム選択
         pg.draw.circle(self.image, color, (rad, rad), rad)
         self.image.set_colorkey((0, 0, 0))
         self.rect = self.image.get_rect()
@@ -339,8 +341,8 @@ def main():
             if emy.state == "stop" and tmr%emy.interval == 0:
                 # 敵機が停止状態に入ったら，intervalに応じて爆弾投下
                 if hp_bar.kawata:
-                    for i in range(12):
-                        bombs.add(AngleBomb(emy, bird, i*30))
+                    for i in range(30):
+                        bombs.add(AngleBomb(emy, bird, i*12))
                 else:
                     bombs.add(Bullet(emy,bird))
                 
