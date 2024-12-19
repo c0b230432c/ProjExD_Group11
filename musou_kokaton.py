@@ -67,7 +67,7 @@ class Bird(pg.sprite.Sprite):
             (0, +1): pg.transform.rotozoom(img, -90, 0.9),  # 下
             (+1, +1): pg.transform.rotozoom(img, -45, 0.9),  # 右下
         }
-        self.dire = (+1, 0)
+        self.dire = (1, 0)
         self.image = self.imgs[self.dire]
         self.rect = self.image.get_rect()
         self.rect.center = xy
@@ -147,11 +147,11 @@ class Beam(pg.sprite.Sprite):
         引数 bird：ビームを放つこうかとん
         """
         super().__init__()
-        self.vx, self.vy = bird.dire
-        angle = math.degrees(math.atan2(-self.vy, self.vx))
-        self.image = pg.transform.rotozoom(pg.image.load(f"fig/beam.png"), angle, 1.0)
-        self.vx = math.cos(math.radians(angle))
-        self.vy = -math.sin(math.radians(angle))
+        self.vx, self.vy = (0, -1)
+        # angle = math.degrees(math.atan2(-self.vy, self.vx))
+        self.image = pg.transform.rotozoom(pg.image.load(f"fig/beam.png"), 90, 1.0)
+        # self.vx = math.cos(math.radians(angle))
+        # self.vy = -math.sin(math.radians(angle))
         self.rect = self.image.get_rect()
         self.rect.centery = bird.rect.centery+bird.rect.height*self.vy
         self.rect.centerx = bird.rect.centerx+bird.rect.width*self.vx
@@ -262,7 +262,7 @@ class HP(pg.sprite.Sprite):
         self.frame = pg.Rect(self.x + 2 + self.label.get_width(), self.y, self.width, self.label.get_height())
         self.bar = pg.Rect(self.x + 4 + self.label.get_width(), self.y + 2, self.width - 4, self.label.get_height() - 4)
         self.value = pg.Rect(self.x + 4 + self.label.get_width(), self.y + 2, self.width - 4, self.label.get_height() - 4)
-        self.value.width = self.width * (self.hp / self.max)
+        self.value.width = (self.width - 4) * (self.hp / self.max)
         if self.hp <= 0:
             self.victory=True
 
