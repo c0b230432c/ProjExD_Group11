@@ -239,6 +239,27 @@ class Enemy(pg.sprite.Sprite):
 #     def update(self, screen: pg.Surface):
 #         self.image = self.font.render(f"Score: {self.value}", 0, self.color)
 #         screen.blit(self.image, self.rect)
+class Zanki:
+    """
+    残機を表示するクラス
+    """
+    def __init__(self, zanki :int):
+        """
+        残機数を表示する関数
+        """
+        self.font = pg.font.Font(None, 40)
+        self.color = (0, 255, 255)
+        self.value = zanki
+        self.image = self.font.render(f"machine:{'◆'*self.value}", 0, self.color)
+        self.rect = self.image.get_rect()
+        self.rect.center = 100, HEIGHT - 50
+
+    def update(self, screen: pg.Surface):
+        """
+        残機数を更新する関数
+        """
+        self.image = self.font.render(f"machine:{'◆'*self.value}", 0, self.color)
+        screen.blit(self.image, self.rect)
 
 
 class HP(pg.sprite.Sprite):
@@ -287,7 +308,6 @@ def main():
     pg.display.set_caption("真！こうかとん無双")
     screen = pg.display.set_mode((WIDTH, HEIGHT))
     bg_img = pg.image.load(f"fig/background01.png")  # デフォルトではpb_bg.jpg
-    # score = Score()
 
     bird = Bird(3, (WIDTH/2, HEIGHT-100))  # こうかとん出現場所
     bombs = pg.sprite.Group()
@@ -296,12 +316,14 @@ def main():
     emys = pg.sprite.Group()
     max_hp = 200  #敵機の最大HP
     hp=max_hp  #現在の敵機のHP
+    zanki = 3  #残機
 
     tmr = 0
     clock = pg.time.Clock()
     while True:
         hp_bar = HP(WIDTH - 250, 20, 200, hp, max_hp)
         key_lst = pg.key.get_pressed()
+        zankis = Zanki(zanki)
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 return 0
@@ -318,28 +340,21 @@ def main():
                 bombs.add(Bullet(emy, bird))
 
         for emy in pg.sprite.groupcollide(emys, beams, False, True).keys():  # ビームと衝突した敵機リスト
-            # exps.add(Explosion(emy, 100))  # 爆発エフェクト
-            # score.value += 10  # 10点アップ
             hp -= 10
             if hp <= 0:
                 hp_bar.victory = True
             bird.change_img(6, screen)  # こうかとん喜びエフェクト
 
-        # for bomb in pg.sprite.groupcollide(bombs, beams, True, True).keys():  # ビームと衝突した爆弾リスト
-        #     exps.add(Explosion(bomb, 50))  # 爆発エフェクト
-        #     score.value += 1  # 1点アップ
-        #コメントアウト理由:弾幕は消さない仕様にするため
-
         for bomb in pg.sprite.spritecollide(bird, bombs, True):  # こうかとんと衝突した爆弾リスト
-            bird.change_img(8, screen)  # こうかとん悲しみエフェクト
-            # score.update(screen)
-            pg.display.update()
-            time.sleep(2)
-            return
+            zanki -= 1
+            if zanki <= 0:
+                bird.change_img(8, screen)  # こうかとん悲しみエフェクト
+                pg.display.update()
+                time.sleep(2)
+                return
         
         if hp_bar.victory:#HPが0の時
             bird.change_img(6, screen)  # こうかとん悲しみエフェクト
-            # score.update(screen)
             pg.display.update()
             time.sleep(2)
             return
@@ -353,7 +368,7 @@ def main():
         bombs.draw(screen)
         exps.update()
         exps.draw(screen)
-        # score.update(screen)
+        zankis.update(screen)
         hp_bar.hp_draw(screen)
         pg.display.update()
         tmr += 1
