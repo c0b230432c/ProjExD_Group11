@@ -161,6 +161,10 @@ class FreeBullet(pg.sprite.Sprite):
         self.rect.centerx = x
         self.rect.centery = y
         self.speed = 6
+        self.wait_time = 0
+
+    def set_wait_time(self, time: int):
+        self.wait_time = time
 
     def update(self):
         """
@@ -326,12 +330,14 @@ def main():
 
     bird = Bird(3, (WIDTH/2, HEIGHT-100))  # こうかとん出現場所
     bombs = pg.sprite.Group()
+    free_bullets = pg.sprite.Group()  #弾幕のグループ
     beams = pg.sprite.Group()
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
     max_hp = 200  #敵機の最大HP
     hp=max_hp  #現在の敵機のHP
 
+    second_tmr = 0  #第二フェーズのタイマー
     tmr = 0
     clock = pg.time.Clock()
     while True:
@@ -347,10 +353,66 @@ def main():
         if tmr == 0:  # 200フレームに敵を出現させる
             emys.add(Enemy())
 
-        for emy in emys:
-            if emy.state == "stop" and tmr%emy.interval == 0:
-                # 敵機が停止状態に入ったら，intervalに応じて爆弾投下
-                bombs.add(Bullet(emy, bird))
+        if 0.3 < hp / max_hp <= 0.6:
+            #時間経過で出現する弾幕
+            if second_tmr == 0:
+                for i in range(0, 250, 50):
+                    free_bullets.add(FreeBullet(25+i , 50, (+0, +0.5), (255, 255, 255), 25))
+                    free_bullets.add(FreeBullet(WIDTH-25-i, 50, (-0, +0.5), (255, 255, 255), 25))
+            elif second_tmr == 60:
+                for i in range(0, 400, 50):
+                    free_bullets.add(FreeBullet(125+i , 50, (+0, +0.5), (255, 255, 255), 25))
+            elif second_tmr == 120:
+                for i in range(0, 250, 50):
+                    free_bullets.add(FreeBullet(25+i , 50, (+0, +0.5), (255, 255, 255), 25))
+                    free_bullets.add(FreeBullet(WIDTH-25-i, 50, (-0, +0.5), (255, 255, 255), 25))
+            elif second_tmr == 240:
+                free_bullets.add(FreeBullet(25, 500, (+0.5, +0), (255, 255, 255), 25))
+                free_bullets.add(FreeBullet(WIDTH-25, 600, (-0.5, -0), (255, 255, 255), 25))
+            elif second_tmr == 300:
+                free_bullets.add(FreeBullet(25, 600, (+0.5, +0), (255, 255, 255), 25))
+                free_bullets.add(FreeBullet(WIDTH-25, 500, (-0.5, -0), (255, 255, 255), 25))
+            elif second_tmr == 360:
+                free_bullets.add(FreeBullet(25, 450, (+0.5, +0), (255, 255, 255), 25))
+                free_bullets.add(FreeBullet(WIDTH-25, 450, (-0.5, -0), (255, 255, 255), 25))
+            elif second_tmr == 420:
+                free_bullets.add(FreeBullet(25, 650, (+0.5, +0), (255, 255, 255), 25))
+                free_bullets.add(FreeBullet(WIDTH-25, 550, (-0.5, -0), (255, 255, 255), 25))
+            
+            #繰り返し放つ弾幕
+            if 120 <= second_tmr and (second_tmr-120)%20 == 0:
+                free_bullets.add(FreeBullet(25 , 25, (+0, +0.5), (255, 255, 255), 25))
+                free_bullets.add(FreeBullet(WIDTH-25, 25, (-0, +0.5), (255, 255, 255), 25))
+            if 180 <= second_tmr < 480 and (second_tmr-180)%30 == 0:
+                # 8方位のベクトルを計算
+                direction_vectors_8 = [(math.cos(angle), math.sin(angle))  # x = cos(θ), y = sin(θ)
+                    for angle in [i * math.pi / 4 for i in range(8)]]  # 0, π/4, π/2, ..., 7π/4
+                for vector in direction_vectors_8:
+                    free_bullets.add(FreeBullet(150 , 150, vector, (255, 255, 255), 10))
+                    free_bullets.add(FreeBullet(WIDTH-150 , 150, vector, (255, 255, 255), 10))
+            if 480 <= second_tmr and (second_tmr-480)%30 == 0:
+                # 16方位のベクトルを計算
+                direction_vectors_16 = [(math.cos(angle), math.sin(angle))  # x = cos(θ), y = sin(θ)
+                    for angle in [i * math.pi / 8 for i in range(16)]]  # 0, π/8, 2π/8, ..., 15π/8
+                angle_step = 5 * math.pi / 180  # 5度をラジアンに変換
+                rotation_angle = second_tmr-480//30 * angle_step  #時間に比例して増加する
+                sin_theta = math.sin(rotation_angle)
+                cos_theta = math.cos(rotation_angle)
+                direction_vectors_16 = [(
+                                        cos_theta * x + sin_theta * y,  # x' = cos(θ) * x + sin(θ) * y
+                                        -sin_theta * x + cos_theta * y  # y' = -sin(θ) * x + cos(θ) * y
+                                        )
+                                        for x, y in direction_vectors_16]
+                for vector in direction_vectors_16:
+                    free_bullets.add(FreeBullet(150 , 150, vector, (255, 255, 255), 5))
+                    free_bullets.add(FreeBullet(WIDTH-150 , 150, vector, (255, 255, 255), 5))
+            second_tmr += 1
+
+        else:
+            for emy in emys:
+                if emy.state == "stop" and tmr%emy.interval == 0:
+                    # 敵機が停止状態に入ったら，intervalに応じて爆弾投下
+                    bombs.add(Bullet(emy, bird))
 
         for emy in pg.sprite.groupcollide(emys, beams, False, True).keys():  # ビームと衝突した敵機リスト
             # exps.add(Explosion(emy, 100))  # 爆発エフェクト
@@ -371,6 +433,13 @@ def main():
             pg.display.update()
             time.sleep(2)
             return
+
+        for bomb in pg.sprite.spritecollide(bird, free_bullets, True):  # こうかとんと衝突した弾幕リスト
+            bird.change_img(8, screen)  # こうかとん悲しみエフェクト
+            # score.update(screen)
+            pg.display.update()
+            time.sleep(2)
+            return
         
         if hp_bar.victory:#HPが0の時
             bird.change_img(6, screen)  # こうかとん悲しみエフェクト
@@ -386,6 +455,8 @@ def main():
         emys.draw(screen)
         bombs.update()
         bombs.draw(screen)
+        free_bullets.update()
+        free_bullets.draw(screen)
         exps.update()
         exps.draw(screen)
         # score.update(screen)
