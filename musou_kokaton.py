@@ -635,8 +635,18 @@ def main():
         
         if hp_bar.victory:#HPが0の時
             bird.change_img(6, screen)  # こうかとん喜びエフェクト
+            bg_image = pg.Surface((WIDTH, HEIGHT))  #空のSurfaceの生成
+            pg.draw.rect(bg_image, (0, 0, 0), (0, 0, WIDTH, HEIGHT))  #黒い矩形をdrawする
+            bg_image.set_alpha(200)  #半透明にする
+            bg_rect = bg_image.get_rect()
+            clear_font = pg.font.Font(None, 50)
+            clear_image = clear_font.render(f"clear! death: {3-zanki}, use bomb:{3-special.lives}", 0, (255, 0, 0))
+            clear_rect = clear_image.get_rect()
+            clear_rect.center = WIDTH/2, HEIGHT/2
+            screen.blit(bg_image, bg_rect)
+            screen.blit(clear_image, clear_rect)
             pg.display.update()
-            time.sleep(2)
+            time.sleep(5)
             return
 
         bird.update(key_lst, screen)
