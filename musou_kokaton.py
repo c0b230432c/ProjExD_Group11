@@ -1,4 +1,6 @@
+import cv2
 import math
+import numpy as np
 import os
 import random
 import sys
@@ -220,7 +222,7 @@ class Bird(pg.sprite.Sprite):
             (0, +1): pg.transform.rotozoom(img, -90, 0.9),  # 下
             (+1, +1): pg.transform.rotozoom(img, -45, 0.9),  # 右下
         }
-        self.dire = (+1, 0)
+        self.dire = (1, 0)
         self.image = self.imgs[self.dire]
         self.rect = self.image.get_rect()
         self.rect.center = xy
@@ -254,13 +256,44 @@ class Bird(pg.sprite.Sprite):
             self.image = self.imgs[self.dire]
         screen.blit(self.image, self.rect)
 
+<<<<<<< HEAD
         
+=======
+
+class Bird_Collide(pg.sprite.Sprite):
+    """
+    ゲームキャラクター（こうかとん）の当たり判定に関するクラス
+    """
+    def __init__(self, num: int, xy: tuple[int, int]):
+        """
+        こうかとんの当たり判定Surfaceを生成する
+        引数1 num：こうかとん画像ファイル名の番号
+        引数2 xy：こうかとん画像の位置座標タプル
+        """
+        super().__init__()
+        rad = 10  # 当たり判定の半径：10以上50以下の乱数
+        self.image = pg.Surface((2*rad, 2*rad))
+        color = (255, 0, 0)  # 爆弾円の色：クラス変数からランダム選択
+        pg.draw.circle(self.image, color, (rad, rad), rad)
+        self.image.set_alpha(128)
+        self.image.set_colorkey((0, 0, 0))
+        self.rect = self.image.get_rect()
+
+    def update(self, screen: pg.Surface, bird: Bird):
+        """
+        当たり判定の位置を更新する
+        引数1 screen：画面Surface
+        引数2 bird：こうかとん
+        """
+        self.rect.center = bird.rect.center
+        screen.blit(self.image, self.rect)
+
+
+>>>>>>> 622964563b4fc79312ec4891a2647224ad8e4264
 class Bullet(pg.sprite.Sprite):
     """
     爆弾に関するクラス
     """
-    colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (255, 0, 255), (0, 255, 255)]
-
     def __init__(self, emy: "Enemy", bird: Bird):
         """
         爆弾円Surfaceを生成する
@@ -270,7 +303,7 @@ class Bullet(pg.sprite.Sprite):
         super().__init__()
         rad = random.randint(10, 50)  # 爆弾円の半径：10以上50以下の乱数
         self.image = pg.Surface((2*rad, 2*rad))
-        color = random.choice(__class__.colors)  # 爆弾円の色：クラス変数からランダム選択
+        color = (0, 255, 0)  # 爆弾円の色：クラス変数からランダム選択
         pg.draw.circle(self.image, color, (rad, rad), rad)
         self.image.set_colorkey((0, 0, 0))
         self.rect = self.image.get_rect()
@@ -279,6 +312,112 @@ class Bullet(pg.sprite.Sprite):
         self.rect.centerx = emy.rect.centerx
         self.rect.centery = emy.rect.centery+emy.rect.height//2
         self.speed = 6
+
+    def update(self):
+        """
+        爆弾を速度ベクトルself.vx, self.vyに基づき移動させる
+        引数 screen：画面Surface
+        """
+        self.rect.move_ip(self.speed*self.vx, self.speed*self.vy)
+        if check_bound(self.rect) != (True, True):
+            self.kill()
+
+
+class AngleBomb(pg.sprite.Sprite):
+    """
+    角度付き爆弾のクラス
+    """
+    def __init__(self, emy: "Enemy", bird: Bird, angle: int):
+        """
+        爆弾円Surfaceを生成する
+        引数1 emy：爆弾を投下する敵機
+        引数2 bird：攻撃対象のこうかとん
+        引数3 angle：爆弾の角度
+        """
+        super().__init__()
+        rad = 10  # 爆弾円の半径：10以上50以下の乱数
+        self.image = pg.Surface((2*rad, 2*rad))
+        color = (0, 255, 255)  # 爆弾円の色：クラス変数からランダム選択
+        pg.draw.circle(self.image, color, (rad, rad), rad)
+        self.image.set_colorkey((0, 0, 0))
+        self.rect = self.image.get_rect()
+        # 爆弾を投下するemyから見た攻撃対象のbirdの方向を計算
+        self.vx, self.vy = calc_orientation(emy.rect, bird.rect)
+        vector = np.array([self.vx,self.vy])
+        radi=np.deg2rad(angle)
+        rot = np.array([[math.cos(radi), -math.sin(radi)],
+                    [math.sin(radi), math.cos(radi)]])
+        self.res = np.dot(rot, vector) 
+        self.rect.centerx = emy.rect.centerx
+        self.rect.centery = emy.rect.centery+emy.rect.height//2
+        self.vx, self.vy = self.res
+        self.speed = 6
+
+    def update(self):
+        """
+        爆弾を計算した速度ベクトルself.resに基づき移動させる
+        """
+        self.rect.move_ip(self.speed*self.vx, self.speed*self.vy)
+        if check_bound(self.rect) != (True, True):
+            self.kill()
+
+
+class Fall(pg.sprite.Sprite):
+    """
+    縦に振ってくる爆弾のクラス
+    """
+    def __init__(self):
+        """
+        上から降ってくる爆弾を生成する関数
+        """
+        super().__init__()
+        rad = 5    # 爆弾円の半径：20
+        self.image = pg.Surface((2*rad, 2*rad))
+        color = (255, 255, 0)  # 爆弾円の色：クラス変数からランダム選択
+        pg.draw.circle(self.image, color, (rad, rad), rad)
+        self.image.set_colorkey((0, 0, 0))
+        self.rect = self.image.get_rect()
+        self.vx, self.vy = random.randint(-6, 6),6
+        self.rect.centerx = random.randint(rad, WIDTH - rad)
+        self.rect.top = 0
+        self.speed = 6
+
+    def update(self):
+        """
+        爆弾を計算した速度self.vyに基づき移動させる
+        """
+        self.rect.move_ip(self.vx, self.vy)
+        if check_bound(self.rect) != (True, True):
+            self.kill()
+
+
+class FreeBullet(pg.sprite.Sprite):
+    """
+    弾幕に関するクラス
+    """
+    def __init__(self, x: int, y: int, vector: tuple, color: tuple, rad: int):
+        """
+        弾幕円Surfaceを生成する
+        引数1 x座標
+        引数2 y座標
+        引数3 動かしたい方向ベクトル
+        引数4 色（RGB）
+        引数5 円の半径
+        """
+        super().__init__()
+        self.image = pg.Surface((2*rad, 2*rad))
+        pg.draw.circle(self.image, color, (rad, rad), rad)
+        self.image.set_colorkey((0, 0, 0))
+        self.rect = self.image.get_rect()
+        # 爆弾を投下するemyから見た攻撃対象のbirdの方向を計算
+        self.vx, self.vy = vector
+        self.rect.centerx = x
+        self.rect.centery = y
+        self.speed = 6
+        self.wait_time = 0
+
+    def set_wait_time(self, time: int):
+        self.wait_time = time
 
     def update(self):
         """
@@ -300,11 +439,11 @@ class Beam(pg.sprite.Sprite):
         引数 bird：ビームを放つこうかとん
         """
         super().__init__()
-        self.vx, self.vy = bird.dire
-        angle = math.degrees(math.atan2(-self.vy, self.vx))
-        self.image = pg.transform.rotozoom(pg.image.load(f"fig/beam.png"), angle, 1.0)
-        self.vx = math.cos(math.radians(angle))
-        self.vy = -math.sin(math.radians(angle))
+        self.vx, self.vy = (0, -1)
+        # angle = math.degrees(math.atan2(-self.vy, self.vx))
+        self.image = pg.transform.rotozoom(pg.image.load(f"fig/beam.png"), 90, 1.0)
+        # self.vx = math.cos(math.radians(angle))
+        # self.vy = -math.sin(math.radians(angle))
         self.rect = self.image.get_rect()
         self.rect.centery = bird.rect.centery+bird.rect.height*self.vy
         self.rect.centerx = bird.rect.centerx+bird.rect.width*self.vx
@@ -352,7 +491,6 @@ class Enemy(pg.sprite.Sprite):
     """
     敵機に関するクラス
     """
-
     def __init__(self):
         super().__init__()
         self.image = pg.transform.rotozoom(pg.image.load(f"fig/E_2.png"), 0, 0.2)
@@ -375,23 +513,46 @@ class Enemy(pg.sprite.Sprite):
         self.rect.move_ip(self.vx, self.vy)
 
 
-# class Score:
-#     """
-#     打ち落とした爆弾，敵機の数をスコアとして表示するクラス
-#     爆弾：1点
-#     敵機：10点
-#     """
-#     def __init__(self):
-#         self.font = pg.font.Font(None, 50)
-#         self.color = (0, 0, 255)
-#         self.value = 0
-#         self.image = self.font.render(f"Score: {self.value}", 0, self.color)
-#         self.rect = self.image.get_rect()
-#         self.rect.center = 100, HEIGHT-50
+class Score:
+    """
+    打ち落とした爆弾，敵機の数をスコアとして表示するクラス
+    爆弾：1点
+    敵機：10点
+    """
+    def __init__(self):
+        self.font = pg.font.Font(None, 50)
+        self.color = (0, 0, 255)
+        self.value = 0
+        self.image = self.font.render(f"Score: {self.value}", 0, self.color)
+        self.rect = self.image.get_rect()
+        self.rect.center = 100, HEIGHT-50
 
-#     def update(self, screen: pg.Surface):
-#         self.image = self.font.render(f"Score: {self.value}", 0, self.color)
-#         screen.blit(self.image, self.rect)
+    def update(self, screen: pg.Surface):
+        self.image = self.font.render(f"Score: {self.value}", 0, self.color)
+        screen.blit(self.image, self.rect)
+
+
+class Zanki:
+    """
+    残機を表示するクラス
+    """
+    def __init__(self, zanki :int):
+        """
+        残機数を表示する関数
+        """
+        self.font = pg.font.Font(None, 40)
+        self.color = (0, 255, 255)
+        self.value = zanki
+        self.image = self.font.render(f"machine:{'◆'*self.value}", 0, self.color)
+        self.rect = self.image.get_rect()
+        self.rect.center = 100, HEIGHT - 50
+
+    def update(self, screen: pg.Surface):
+        """
+        残機数を更新する関数
+        """
+        self.image = self.font.render(f"machine:{'◆'*self.value}", 0, self.color)
+        screen.blit(self.image, self.rect)
 
 
 class HP(pg.sprite.Sprite):
@@ -415,9 +576,12 @@ class HP(pg.sprite.Sprite):
         self.frame = pg.Rect(self.x + 2 + self.label.get_width(), self.y, self.width, self.label.get_height())
         self.bar = pg.Rect(self.x + 4 + self.label.get_width(), self.y + 2, self.width - 4, self.label.get_height() - 4)
         self.value = pg.Rect(self.x + 4 + self.label.get_width(), self.y + 2, self.width - 4, self.label.get_height() - 4)
-        self.value.width = self.width * (self.hp / self.max)
+        self.value.width = (self.width - 4) * (self.hp / self.max)
+        self.kawata = False
         if self.hp <= 0:
-            self.victory=True
+            self.victory = True
+        if self.hp / self.max <= 0.3:    #3割り切ったら河田担当
+            self.kawata = True
 
     def hp_draw(self, screen):
         """
@@ -426,9 +590,11 @@ class HP(pg.sprite.Sprite):
         """ 
         if not self.victory:
             color = (0, 255, 0)
-            if self.hp / self.max <= 0.1:
+            self.kawata = False
+            if self.hp / self.max <= 0.3:  #3割以下なら赤
+                self.kawata = True
                 color = (255, 0, 0)
-            elif self.hp / self.max <= 0.5:
+            elif self.hp / self.max <= 0.6:  #6割以下なら黄色
                 color = (255, 255, 0)
             pg.draw.rect(screen, (255, 255, 255), self.frame)
             pg.draw.rect(screen, (0, 0, 0), self.bar)
@@ -436,17 +602,71 @@ class HP(pg.sprite.Sprite):
             screen.blit(self.label, (self.x, self.y))
 
 
+class Special:
+    """
+    必殺技に関するクラス
+    """
+    def __init__(self):
+        SPECIAL_LIVES = 3
+        self.lives = SPECIAL_LIVES # 必殺技の初期残機数
+        self.font = pg.font.Font(None, 50)
+        self.color = (255, 0, 0)
+        self.image = self.font.render(f"SPECIAL: {self.lives}", 0, self.color)
+        self.rect = self.image.get_rect()
+        self.rect.center = WIDTH - 100, HEIGHT - 50
+
+    def update(self, screen: pg.Surface):
+        """
+        必殺技残機数を画面に表示
+        """
+        self.image = self.font.render(f"SPECIAL: {self.lives}", 0, self.color) # 残機更新のため必要
+        screen.blit(self.image, self.rect)
+
+    def use(self, bombs: pg.sprite.Group,free_bullets: pg.sprite.Group, screen: pg.Surface):
+        """
+        必殺技を使用し、爆弾をすべて消去
+        """
+        if self.lives > 0: # 必殺技残機が残っているなら
+            self.lives -= 1 # 必殺技残機を1減らす
+            self.play_video(screen) # ゲーム停止と動画再生
+            bombs.empty() # 爆弾をすべて消去
+            free_bullets.empty() # 弾幕をすべて消去
+            
+    def play_video(self, screen: pg.Surface):
+        """
+        ゲームを一時停止し、動画を再生
+        """
+        video_path = "fig/proen_kari.mp4" # 動画パス
+        cap = cv2.VideoCapture(video_path) # cv2の動画を読み込むメソッド
+        while cap.isOpened(): # 動画が再生されている間
+            ret, frame = cap.read() # 1フレームごとに動画を読み込み(frame=1フレームごとの画像データ)
+            if not ret: # フレームが読み込めなかったら
+                break # 動画が終了した際にフレームが読み込めなくなるのでWhileから出ないとエラーが起きる
+            # OpenCVのBGR形式をPygameのSurface形式に変換
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            frame = cv2.transpose(frame) # 画像データの回転-->surfaceに変換するのに必要
+            frame = pg.surfarray.make_surface(frame)
+            screen.blit(frame, (0, 250))
+            pg.display.update()
+            pg.time.delay(int(500 / 30)) # 30FPS
+        cap.release() #動画ファイルを閉じる
+    time.sleep(3) # ゲーム停止時間
+
+
 def main():
-    pg.display.set_caption("真！こうかとん無双")
+    pg.display.set_caption("こうかとん弾幕ゲーム【難～爆】")
     screen = pg.display.set_mode((WIDTH, HEIGHT))
     bg_img = pg.image.load(f"fig/background01.png")  # デフォルトではpb_bg.jpg
-    # score = Score()
+    special = Special()  # 必殺技管理クラス
 
     bird = Bird(3, (WIDTH/2, HEIGHT-100))  # こうかとん出現場所
+    collider = Bird_Collide(3, (WIDTH/2, HEIGHT-100))
     bombs = pg.sprite.Group()
+    free_bullets = pg.sprite.Group()  #弾幕のグループ
     beams = pg.sprite.Group()
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
+<<<<<<< HEAD
     gutters = pg.sprite.Group() # 小林担当部分
     glasers = pg.sprite.Group()
     max_hp = 200  #敵機の最大HP
@@ -455,20 +675,39 @@ def main():
 
     tmr = 1 
     # print(len(gutters),471)
+=======
+    anbo = pg.sprite.Group()
+    falls = pg.sprite.Group()
+    max_hp = 2000  #敵機の最大HP
+    hp=max_hp  #現在の敵機のHP
+    zanki = 3  #残機
+
+    second_tmr = 0  #第二フェーズのタイマー
+    tmr = 0
+>>>>>>> 622964563b4fc79312ec4891a2647224ad8e4264
     clock = pg.time.Clock()
     while True:
         hp_bar = HP(WIDTH - 250, 20, 200, hp, max_hp)
         key_lst = pg.key.get_pressed()
+        zankis = Zanki(zanki)
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 return 0
             if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
                 beams.add(Beam(bird))
+            if event.type == pg.KEYDOWN and event.key == pg.K_b and special.lives > 0: # Bキーで必殺技発動
+                special.use(bombs, free_bullets, screen)
+            if event.type == pg.KEYDOWN and event.key == pg.K_n:
+                bird.speed = 5
+            if event.type == pg.KEYDOWN and event.key == pg.K_m:
+                bird.speed = 10
+
         screen.blit(bg_img, [0, 0])
 
         if tmr == 200:  # 200フレームに敵を出現させる
             emys.add(Enemy())
 
+<<<<<<< HEAD
         if tmr % 200 == 0:  # 小林担当部分 # 541フレーム間隔で敵を出現させる
             gutters.add(GutterEnemy())
 
@@ -494,58 +733,133 @@ def main():
         #         time.sleep(2)
         #         return
         
+=======
+        if 0.3 < hp / max_hp <= 0.6:
+            #時間経過で出現する弾幕
+            if second_tmr == 0:
+                for i in range(0, 250, 50):
+                    free_bullets.add(FreeBullet(25+i , 50, (+0, +0.5), (255, 255, 255), 25))
+                    free_bullets.add(FreeBullet(WIDTH-25-i, 50, (-0, +0.5), (255, 255, 255), 25))
+            elif second_tmr == 60:
+                for i in range(0, 400, 50):
+                    free_bullets.add(FreeBullet(125+i , 50, (+0, +0.5), (255, 255, 255), 25))
+            elif second_tmr == 120:
+                for i in range(0, 250, 50):
+                    free_bullets.add(FreeBullet(25+i , 50, (+0, +0.5), (255, 255, 255), 25))
+                    free_bullets.add(FreeBullet(WIDTH-25-i, 50, (-0, +0.5), (255, 255, 255), 25))
+            elif second_tmr == 240:
+                free_bullets.add(FreeBullet(25, 500, (+0.5, +0), (255, 255, 255), 25))
+                free_bullets.add(FreeBullet(WIDTH-25, 600, (-0.5, -0), (255, 255, 255), 25))
+            elif second_tmr == 300:
+                free_bullets.add(FreeBullet(25, 600, (+0.5, +0), (255, 255, 255), 25))
+                free_bullets.add(FreeBullet(WIDTH-25, 500, (-0.5, -0), (255, 255, 255), 25))
+            elif second_tmr == 360:
+                free_bullets.add(FreeBullet(25, 450, (+0.5, +0), (255, 255, 255), 25))
+                free_bullets.add(FreeBullet(WIDTH-25, 450, (-0.5, -0), (255, 255, 255), 25))
+            elif second_tmr == 420:
+                free_bullets.add(FreeBullet(25, 650, (+0.5, +0), (255, 255, 255), 25))
+                free_bullets.add(FreeBullet(WIDTH-25, 550, (-0.5, -0), (255, 255, 255), 25))
+            
+            #繰り返し放つ弾幕
+            if 120 <= second_tmr and (second_tmr-120)%20 == 0:
+                free_bullets.add(FreeBullet(25 , 25, (+0, +0.5), (255, 255, 255), 25))
+                free_bullets.add(FreeBullet(WIDTH-25, 25, (-0, +0.5), (255, 255, 255), 25))
+            if 180 <= second_tmr < 480 and (second_tmr-180)%30 == 0:
+                # 8方位のベクトルを計算
+                direction_vectors_8 = [(math.cos(angle), math.sin(angle))  # x = cos(θ), y = sin(θ)
+                    for angle in [i * math.pi / 4 for i in range(8)]]  # 0, π/4, π/2, ..., 7π/4
+                for vector in direction_vectors_8:
+                    free_bullets.add(FreeBullet(150 , 150, vector, (255, 255, 255), 10))
+                    free_bullets.add(FreeBullet(WIDTH-150 , 150, vector, (255, 255, 255), 10))
+            if 480 <= second_tmr and (second_tmr-480)%30 == 0:
+                # 16方位のベクトルを計算
+                direction_vectors_16 = [(math.cos(angle), math.sin(angle))  # x = cos(θ), y = sin(θ)
+                    for angle in [i * math.pi / 8 for i in range(16)]]  # 0, π/8, 2π/8, ..., 15π/8
+                angle_step = 5 * math.pi / 180  # 5度をラジアンに変換
+                rotation_angle = second_tmr-480//30 * angle_step  #時間に比例して増加する
+                sin_theta = math.sin(rotation_angle)
+                cos_theta = math.cos(rotation_angle)
+                direction_vectors_16 = [(
+                                        cos_theta * x + sin_theta * y,  # x' = cos(θ) * x + sin(θ) * y
+                                        -sin_theta * x + cos_theta * y  # y' = -sin(θ) * x + cos(θ) * y
+                                        )
+                                        for x, y in direction_vectors_16]
+                for vector in direction_vectors_16:
+                    free_bullets.add(FreeBullet(150 , 150, vector, (255, 255, 255), 5))
+                    free_bullets.add(FreeBullet(WIDTH-150 , 150, vector, (255, 255, 255), 5))
+            second_tmr += 1
+>>>>>>> 622964563b4fc79312ec4891a2647224ad8e4264
 
         for emy in emys:
+            if hp_bar.kawata:
+                    if random.random() < 0.3:
+                        fall = Fall()  # 縦に降ってくる弾
+                        bombs.add(fall)  # bombsグループに追加
             if emy.state == "stop" and tmr%emy.interval == 0:
                 # 敵機が停止状態に入ったら，intervalに応じて爆弾投下
-                bombs.add(Bullet(emy, bird))
+                if hp_bar.kawata:
+                    for i in range(36):
+                        bombs.add(AngleBomb(emy, collider, i*10))
+                    bombs.add(Bullet(emy, collider))
+                else:
+                    bombs.add(Bullet(emy, collider))
 
         for emy in pg.sprite.groupcollide(emys, beams, False, True).keys():  # ビームと衝突した敵機リスト
-            # exps.add(Explosion(emy, 100))  # 爆発エフェクト
-            # score.value += 10  # 10点アップ
             hp -= 10
             if hp <= 0:
                 hp_bar.victory = True
-            bird.change_img(6, screen)  # こうかとん喜びエフェクト
 
-        # for bomb in pg.sprite.groupcollide(bombs, beams, True, True).keys():  # ビームと衝突した爆弾リスト
-        #     exps.add(Explosion(bomb, 50))  # 爆発エフェクト
-        #     score.value += 1  # 1点アップ
-        #コメントアウト理由:弾幕は消さない仕様にするため
+        for bomb in pg.sprite.spritecollide(collider, bombs, True):  # こうかとんと衝突した弾幕リスト
+            zanki -= 1
+            if zanki <= 0:
+                bird.change_img(8, screen)  # こうかとん悲しみエフェクト
+                pg.display.update()
+                time.sleep(2)
+                return
 
-        for bomb in pg.sprite.spritecollide(bird, bombs, True):  # こうかとんと衝突した爆弾リスト
-            bird.change_img(8, screen)  # こうかとん悲しみエフェクト
-            # score.update(screen)
-            pg.display.update()
-            time.sleep(2)
-            return
+        for bomb in pg.sprite.spritecollide(collider, free_bullets, True):  # こうかとんと衝突した弾幕リスト
+            zanki -= 1
+            if zanki <= 0:
+                bird.change_img(8, screen)  # こうかとん悲しみエフェクト
+                pg.display.update()
+                time.sleep(2)
+                return
         
         if hp_bar.victory:#HPが0の時
-            bird.change_img(6, screen)  # こうかとん悲しみエフェクト
-            # score.update(screen)
+            bird.change_img(6, screen)  # こうかとん喜びエフェクト
             pg.display.update()
             time.sleep(2)
             return
 
         bird.update(key_lst, screen)
+        collider.update(screen, bird)
         beams.update()
         beams.draw(screen)
-        emys.update()
-        emys.draw(screen)
         bombs.update()
         bombs.draw(screen)
+        free_bullets.update()
+        free_bullets.draw(screen)
         exps.update()
         exps.draw(screen)
-        # score.update(screen)
+        special.update(screen)
+        zankis.update(screen)
         hp_bar.hp_draw(screen)
+<<<<<<< HEAD
         if len(gutters) >= 1: # 小林部分
             gutters.update(screen)
 
+=======
+        anbo.update()
+        anbo.draw(screen)
+        falls.update()
+        falls.draw(screen)
+        emys.update()
+        emys.draw(screen)
+>>>>>>> 622964563b4fc79312ec4891a2647224ad8e4264
         pg.display.update()
         tmr += 1
         clock.tick(50)
-
-
+        
 if __name__ == "__main__":
     pg.init()
     main()
