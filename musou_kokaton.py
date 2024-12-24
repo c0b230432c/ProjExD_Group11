@@ -1,3 +1,4 @@
+import cv2
 import math
 import os
 import random
@@ -137,6 +138,45 @@ class Bullet(pg.sprite.Sprite):
             self.kill()
 
 
+class FreeBullet(pg.sprite.Sprite):
+    """
+    弾幕に関するクラス
+    """
+
+    def __init__(self, x: int, y: int, vector: tuple, color: tuple, rad: int):
+        """
+        弾幕円Surfaceを生成する
+        引数1 x座標
+        引数2 y座標
+        引数3 動かしたい方向ベクトル
+        引数4 色（RGB）
+        引数5 円の半径
+        """
+        super().__init__()
+        self.image = pg.Surface((2*rad, 2*rad))
+        pg.draw.circle(self.image, color, (rad, rad), rad)
+        self.image.set_colorkey((0, 0, 0))
+        self.rect = self.image.get_rect()
+        # 爆弾を投下するemyから見た攻撃対象のbirdの方向を計算
+        self.vx, self.vy = vector
+        self.rect.centerx = x
+        self.rect.centery = y
+        self.speed = 6
+        self.wait_time = 0
+
+    def set_wait_time(self, time: int):
+        self.wait_time = time
+
+    def update(self):
+        """
+        爆弾を速度ベクトルself.vx, self.vyに基づき移動させる
+        引数 screen：画面Surface
+        """
+        self.rect.move_ip(self.speed*self.vx, self.speed*self.vy)
+        if check_bound(self.rect) != (True, True):
+            self.kill()
+
+
 class Beam(pg.sprite.Sprite):
     """
     ビームに関するクラス
@@ -221,25 +261,23 @@ class Enemy(pg.sprite.Sprite):
             self.state = "stop"
         self.rect.move_ip(self.vx, self.vy)
 
+class Score:
+    """
+    打ち落とした爆弾，敵機の数をスコアとして表示するクラス
+    爆弾：1点
+    敵機：10点
+    """
+    def __init__(self):
+        self.font = pg.font.Font(None, 50)
+        self.color = (0, 0, 255)
+        self.value = 0
+        self.image = self.font.render(f"Score: {self.value}", 0, self.color)
+        self.rect = self.image.get_rect()
+        self.rect.center = 100, HEIGHT-50
 
-# class Score:
-#     """
-#     打ち落とした爆弾，敵機の数をスコアとして表示するクラス
-#     爆弾：1点
-#     敵機：10点
-#     """
-#     def __init__(self):
-#         self.font = pg.font.Font(None, 50)
-#         self.color = (0, 0, 255)
-#         self.value = 0
-#         self.image = self.font.render(f"Score: {self.value}", 0, self.color)
-#         self.rect = self.image.get_rect()
-#         self.rect.center = 100, HEIGHT-50
-
-#     def update(self, screen: pg.Surface):
-#         self.image = self.font.render(f"Score: {self.value}", 0, self.color)
-#         screen.blit(self.image, self.rect)
-
+    def update(self, screen: pg.Surface):
+        self.image = self.font.render(f"Score: {self.value}", 0, self.color)
+        screen.blit(self.image, self.rect)
 
 class HP(pg.sprite.Sprite):
     """
@@ -273,9 +311,9 @@ class HP(pg.sprite.Sprite):
         """ 
         if not self.victory:
             color = (0, 255, 0)
-            if self.hp / self.max <= 0.1:
+            if self.hp / self.max <= 0.3:
                 color = (255, 0, 0)
-            elif self.hp / self.max <= 0.5:
+            elif self.hp / self.max <= 0.6:
                 color = (255, 255, 0)
             pg.draw.rect(screen, (255, 255, 255), self.frame)
             pg.draw.rect(screen, (0, 0, 0), self.bar)
@@ -283,20 +321,75 @@ class HP(pg.sprite.Sprite):
             screen.blit(self.label, (self.x, self.y))
 
 
+class Special:
+    """
+    必殺技に関するクラス
+    """
+    def __init__(self):
+        SPECIAL_LIVES = 3
+        self.lives = SPECIAL_LIVES # 必殺技の初期残機数
+        self.font = pg.font.Font(None, 50)
+        self.color = (255, 0, 0)
+        self.image = self.font.render(f"SPECIAL: {self.lives}", 0, self.color)
+        self.rect = self.image.get_rect()
+        self.rect.center = WIDTH - 100, HEIGHT - 50
+    def update(self, screen: pg.Surface):
+        """
+        必殺技残機数を画面に表示
+        """
+        self.image = self.font.render(f"SPECIAL: {self.lives}", 0, self.color) # 残機更新のため必要
+        screen.blit(self.image, self.rect)
+    def use(self, bombs: pg.sprite.Group,free_bullets: pg.sprite.Group, screen: pg.Surface):
+        """
+        必殺技を使用し、爆弾をすべて消去
+        """
+        if self.lives > 0: # 必殺技残機が残っているなら
+            self.lives -= 1 # 必殺技残機を1減らす
+            self.play_video(screen) # ゲーム停止と動画再生
+            bombs.empty() # 爆弾をすべて消去
+            free_bullets.empty() # 弾幕をすべて消去
+            
+
+    def play_video(self, screen: pg.Surface):
+        """
+        ゲームを一時停止し、動画を再生
+        """
+        video_path = "fig/proen_kari.mp4" # 動画パス
+        cap = cv2.VideoCapture(video_path) # cv2の動画を読み込むメソッド
+        while cap.isOpened(): # 動画が再生されている間
+            ret, frame = cap.read() # 1フレームごとに動画を読み込み(frame=1フレームごとの画像データ)
+            if not ret: # フレームが読み込めなかったら
+                break # 動画が終了した際にフレームが読み込めなくなるのでWhileから出ないとエラーが起きる
+            # OpenCVのBGR形式をPygameのSurface形式に変換
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            frame = cv2.transpose(frame) # 画像データの回転-->surfaceに変換するのに必要
+            frame = pg.surfarray.make_surface(frame)
+            screen.blit(frame, (0, 250))
+            pg.display.update()
+            pg.time.delay(int(500 / 30)) # 30FPS
+        cap.release() #動画ファイルを閉じる
+    time.sleep(3) # ゲーム停止時間
+
+
+
+
 def main():
     pg.display.set_caption("真！こうかとん無双")
     screen = pg.display.set_mode((WIDTH, HEIGHT))
     bg_img = pg.image.load(f"fig/background01.png")  # デフォルトではpb_bg.jpg
     # score = Score()
+    special = Special()  # 必殺技管理クラス
 
     bird = Bird(3, (WIDTH/2, HEIGHT-100))  # こうかとん出現場所
     bombs = pg.sprite.Group()
+    free_bullets = pg.sprite.Group()  #弾幕のグループ
     beams = pg.sprite.Group()
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
     max_hp = 200  #敵機の最大HP
     hp=max_hp  #現在の敵機のHP
 
+    second_tmr = 0  #第二フェーズのタイマー
     tmr = 0
     clock = pg.time.Clock()
     while True:
@@ -307,15 +400,74 @@ def main():
                 return 0
             if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
                 beams.add(Beam(bird))
+            if event.type == pg.KEYDOWN and event.key == pg.K_RSHIFT and special.lives > 0: # Bキーで必殺技発動
+                special.use(bombs, free_bullets, screen)
+
         screen.blit(bg_img, [0, 0])
 
         if tmr == 0:  # 200フレームに敵を出現させる
             emys.add(Enemy())
 
-        for emy in emys:
-            if emy.state == "stop" and tmr%emy.interval == 0:
-                # 敵機が停止状態に入ったら，intervalに応じて爆弾投下
-                bombs.add(Bullet(emy, bird))
+        if 0.3 < hp / max_hp <= 0.6:
+            #時間経過で出現する弾幕
+            if second_tmr == 0:
+                for i in range(0, 250, 50):
+                    free_bullets.add(FreeBullet(25+i , 50, (+0, +0.5), (255, 255, 255), 25))
+                    free_bullets.add(FreeBullet(WIDTH-25-i, 50, (-0, +0.5), (255, 255, 255), 25))
+            elif second_tmr == 60:
+                for i in range(0, 400, 50):
+                    free_bullets.add(FreeBullet(125+i , 50, (+0, +0.5), (255, 255, 255), 25))
+            elif second_tmr == 120:
+                for i in range(0, 250, 50):
+                    free_bullets.add(FreeBullet(25+i , 50, (+0, +0.5), (255, 255, 255), 25))
+                    free_bullets.add(FreeBullet(WIDTH-25-i, 50, (-0, +0.5), (255, 255, 255), 25))
+            elif second_tmr == 240:
+                free_bullets.add(FreeBullet(25, 500, (+0.5, +0), (255, 255, 255), 25))
+                free_bullets.add(FreeBullet(WIDTH-25, 600, (-0.5, -0), (255, 255, 255), 25))
+            elif second_tmr == 300:
+                free_bullets.add(FreeBullet(25, 600, (+0.5, +0), (255, 255, 255), 25))
+                free_bullets.add(FreeBullet(WIDTH-25, 500, (-0.5, -0), (255, 255, 255), 25))
+            elif second_tmr == 360:
+                free_bullets.add(FreeBullet(25, 450, (+0.5, +0), (255, 255, 255), 25))
+                free_bullets.add(FreeBullet(WIDTH-25, 450, (-0.5, -0), (255, 255, 255), 25))
+            elif second_tmr == 420:
+                free_bullets.add(FreeBullet(25, 650, (+0.5, +0), (255, 255, 255), 25))
+                free_bullets.add(FreeBullet(WIDTH-25, 550, (-0.5, -0), (255, 255, 255), 25))
+            
+            #繰り返し放つ弾幕
+            if 120 <= second_tmr and (second_tmr-120)%20 == 0:
+                free_bullets.add(FreeBullet(25 , 25, (+0, +0.5), (255, 255, 255), 25))
+                free_bullets.add(FreeBullet(WIDTH-25, 25, (-0, +0.5), (255, 255, 255), 25))
+            if 180 <= second_tmr < 480 and (second_tmr-180)%30 == 0:
+                # 8方位のベクトルを計算
+                direction_vectors_8 = [(math.cos(angle), math.sin(angle))  # x = cos(θ), y = sin(θ)
+                    for angle in [i * math.pi / 4 for i in range(8)]]  # 0, π/4, π/2, ..., 7π/4
+                for vector in direction_vectors_8:
+                    free_bullets.add(FreeBullet(150 , 150, vector, (255, 255, 255), 10))
+                    free_bullets.add(FreeBullet(WIDTH-150 , 150, vector, (255, 255, 255), 10))
+            if 480 <= second_tmr and (second_tmr-480)%30 == 0:
+                # 16方位のベクトルを計算
+                direction_vectors_16 = [(math.cos(angle), math.sin(angle))  # x = cos(θ), y = sin(θ)
+                    for angle in [i * math.pi / 8 for i in range(16)]]  # 0, π/8, 2π/8, ..., 15π/8
+                angle_step = 5 * math.pi / 180  # 5度をラジアンに変換
+                rotation_angle = second_tmr-480//30 * angle_step  #時間に比例して増加する
+                sin_theta = math.sin(rotation_angle)
+                cos_theta = math.cos(rotation_angle)
+                direction_vectors_16 = [(
+                                        cos_theta * x + sin_theta * y,  # x' = cos(θ) * x + sin(θ) * y
+                                        -sin_theta * x + cos_theta * y  # y' = -sin(θ) * x + cos(θ) * y
+                                        )
+                                        for x, y in direction_vectors_16]
+                for vector in direction_vectors_16:
+                    free_bullets.add(FreeBullet(150 , 150, vector, (255, 255, 255), 5))
+                    free_bullets.add(FreeBullet(WIDTH-150 , 150, vector, (255, 255, 255), 5))
+            second_tmr += 1
+
+        else:
+            for emy in emys:
+                if emy.state == "stop" and tmr%emy.interval == 0:
+                    # 敵機が停止状態に入ったら，intervalに応じて爆弾投下
+                    bombs.add(Bullet(emy, bird))
 
         for emy in pg.sprite.groupcollide(emys, beams, False, True).keys():  # ビームと衝突した敵機リスト
             # exps.add(Explosion(emy, 100))  # 爆発エフェクト
@@ -336,6 +488,13 @@ def main():
             pg.display.update()
             time.sleep(2)
             return
+
+        for bomb in pg.sprite.spritecollide(bird, free_bullets, True):  # こうかとんと衝突した弾幕リスト
+            bird.change_img(8, screen)  # こうかとん悲しみエフェクト
+            # score.update(screen)
+            pg.display.update()
+            time.sleep(2)
+            return
         
         if hp_bar.victory:#HPが0の時
             bird.change_img(6, screen)  # こうかとん悲しみエフェクト
@@ -351,15 +510,17 @@ def main():
         emys.draw(screen)
         bombs.update()
         bombs.draw(screen)
+        free_bullets.update()
+        free_bullets.draw(screen)
         exps.update()
         exps.draw(screen)
         # score.update(screen)
+        special.update(screen)
         hp_bar.hp_draw(screen)
         pg.display.update()
         tmr += 1
         clock.tick(50)
-
-
+        
 if __name__ == "__main__":
     pg.init()
     main()
