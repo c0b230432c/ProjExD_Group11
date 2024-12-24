@@ -1,3 +1,4 @@
+import cv2
 import math
 import os
 import random
@@ -260,25 +261,23 @@ class Enemy(pg.sprite.Sprite):
             self.state = "stop"
         self.rect.move_ip(self.vx, self.vy)
 
+class Score:
+    """
+    打ち落とした爆弾，敵機の数をスコアとして表示するクラス
+    爆弾：1点
+    敵機：10点
+    """
+    def __init__(self):
+        self.font = pg.font.Font(None, 50)
+        self.color = (0, 0, 255)
+        self.value = 0
+        self.image = self.font.render(f"Score: {self.value}", 0, self.color)
+        self.rect = self.image.get_rect()
+        self.rect.center = 100, HEIGHT-50
 
-# class Score:
-#     """
-#     打ち落とした爆弾，敵機の数をスコアとして表示するクラス
-#     爆弾：1点
-#     敵機：10点
-#     """
-#     def __init__(self):
-#         self.font = pg.font.Font(None, 50)
-#         self.color = (0, 0, 255)
-#         self.value = 0
-#         self.image = self.font.render(f"Score: {self.value}", 0, self.color)
-#         self.rect = self.image.get_rect()
-#         self.rect.center = 100, HEIGHT-50
-
-#     def update(self, screen: pg.Surface):
-#         self.image = self.font.render(f"Score: {self.value}", 0, self.color)
-#         screen.blit(self.image, self.rect)
-
+    def update(self, screen: pg.Surface):
+        self.image = self.font.render(f"Score: {self.value}", 0, self.color)
+        screen.blit(self.image, self.rect)
 
 class HP(pg.sprite.Sprite):
     """
@@ -322,11 +321,64 @@ class HP(pg.sprite.Sprite):
             screen.blit(self.label, (self.x, self.y))
 
 
+class Special:
+    """
+    必殺技に関するクラス
+    """
+    def __init__(self):
+        SPECIAL_LIVES = 3
+        self.lives = SPECIAL_LIVES # 必殺技の初期残機数
+        self.font = pg.font.Font(None, 50)
+        self.color = (255, 0, 0)
+        self.image = self.font.render(f"SPECIAL: {self.lives}", 0, self.color)
+        self.rect = self.image.get_rect()
+        self.rect.center = WIDTH - 100, HEIGHT - 50
+    def update(self, screen: pg.Surface):
+        """
+        必殺技残機数を画面に表示
+        """
+        self.image = self.font.render(f"SPECIAL: {self.lives}", 0, self.color) # 残機更新のため必要
+        screen.blit(self.image, self.rect)
+    def use(self, bombs: pg.sprite.Group,free_bullets: pg.sprite.Group, screen: pg.Surface):
+        """
+        必殺技を使用し、爆弾をすべて消去
+        """
+        if self.lives > 0: # 必殺技残機が残っているなら
+            self.lives -= 1 # 必殺技残機を1減らす
+            self.play_video(screen) # ゲーム停止と動画再生
+            bombs.empty() # 爆弾をすべて消去
+            free_bullets.empty() # 弾幕をすべて消去
+            
+
+    def play_video(self, screen: pg.Surface):
+        """
+        ゲームを一時停止し、動画を再生
+        """
+        video_path = "fig/proen_kari.mp4" # 動画パス
+        cap = cv2.VideoCapture(video_path) # cv2の動画を読み込むメソッド
+        while cap.isOpened(): # 動画が再生されている間
+            ret, frame = cap.read() # 1フレームごとに動画を読み込み(frame=1フレームごとの画像データ)
+            if not ret: # フレームが読み込めなかったら
+                break # 動画が終了した際にフレームが読み込めなくなるのでWhileから出ないとエラーが起きる
+            # OpenCVのBGR形式をPygameのSurface形式に変換
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            frame = cv2.transpose(frame) # 画像データの回転-->surfaceに変換するのに必要
+            frame = pg.surfarray.make_surface(frame)
+            screen.blit(frame, (0, 250))
+            pg.display.update()
+            pg.time.delay(int(500 / 30)) # 30FPS
+        cap.release() #動画ファイルを閉じる
+    time.sleep(3) # ゲーム停止時間
+
+
+
+
 def main():
     pg.display.set_caption("真！こうかとん無双")
     screen = pg.display.set_mode((WIDTH, HEIGHT))
     bg_img = pg.image.load(f"fig/background01.png")  # デフォルトではpb_bg.jpg
     # score = Score()
+    special = Special()  # 必殺技管理クラス
 
     bird = Bird(3, (WIDTH/2, HEIGHT-100))  # こうかとん出現場所
     bombs = pg.sprite.Group()
@@ -348,6 +400,9 @@ def main():
                 return 0
             if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
                 beams.add(Beam(bird))
+            if event.type == pg.KEYDOWN and event.key == pg.K_RSHIFT and special.lives > 0: # Bキーで必殺技発動
+                special.use(bombs, free_bullets, screen)
+
         screen.blit(bg_img, [0, 0])
 
         if tmr == 0:  # 200フレームに敵を出現させる
@@ -460,12 +515,12 @@ def main():
         exps.update()
         exps.draw(screen)
         # score.update(screen)
+        special.update(screen)
         hp_bar.hp_draw(screen)
         pg.display.update()
         tmr += 1
         clock.tick(50)
-
-
+        
 if __name__ == "__main__":
     pg.init()
     main()
