@@ -354,6 +354,30 @@ class Score:
         self.image = self.font.render(f"Score: {self.value}", 0, self.color)
         screen.blit(self.image, self.rect)
 
+
+class Zanki:
+    """
+    残機を表示するクラス
+    """
+    def __init__(self, zanki :int):
+        """
+        残機数を表示する関数
+        """
+        self.font = pg.font.Font(None, 40)
+        self.color = (0, 255, 255)
+        self.value = zanki
+        self.image = self.font.render(f"machine:{'◆'*self.value}", 0, self.color)
+        self.rect = self.image.get_rect()
+        self.rect.center = 100, HEIGHT - 50
+
+    def update(self, screen: pg.Surface):
+        """
+        残機数を更新する関数
+        """
+        self.image = self.font.render(f"machine:{'◆'*self.value}", 0, self.color)
+        screen.blit(self.image, self.rect)
+
+
 class HP(pg.sprite.Sprite):
     """
     HPバーの処理
@@ -469,6 +493,7 @@ def main():
     falls = pg.sprite.Group()
     max_hp = 1000  #敵機の最大HP
     hp=max_hp  #現在の敵機のHP
+    zanki = 3  #残機
 
     second_tmr = 0  #第二フェーズのタイマー
     tmr = 0
@@ -476,6 +501,7 @@ def main():
     while True:
         hp_bar = HP(WIDTH - 250, 20, 200, hp, max_hp)
         key_lst = pg.key.get_pressed()
+        zankis = Zanki(zanki)
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 return 0
@@ -569,25 +595,13 @@ def main():
                 hp_bar.victory = True
             bird.change_img(6, screen)  # こうかとん喜びエフェクト
 
-        for bomb in pg.sprite.spritecollide(bird, bombs, True):  # こうかとんと衝突した爆弾リスト
-            bird.change_img(8, screen)  # こうかとん悲しみエフェクト
-            pg.display.update()
-            time.sleep(2)
-            return
-
         for bomb in pg.sprite.spritecollide(bird, free_bullets, True):  # こうかとんと衝突した弾幕リスト
-            bird.change_img(8, screen)  # こうかとん悲しみエフェクト
-            # score.update(screen)
-            pg.display.update()
-            time.sleep(2)
-            return
-
-        for bomb in pg.sprite.spritecollide(bird, free_bullets, True):  # こうかとんと衝突した弾幕リスト
-            bird.change_img(8, screen)  # こうかとん悲しみエフェクト
-            # score.update(screen)
-            pg.display.update()
-            time.sleep(2)
-            return
+            zanki -= 1
+            if zanki <= 0:
+                bird.change_img(8, screen)  # こうかとん悲しみエフェクト
+                pg.display.update()
+                time.sleep(2)
+                return
         
         if hp_bar.victory:#HPが0の時
             bird.change_img(6, screen)  # こうかとん悲しみエフェクト
@@ -606,6 +620,7 @@ def main():
         exps.draw(screen)
         # score.update(screen)
         special.update(screen)
+        zankis.update(screen)
         hp_bar.hp_draw(screen)
         anbo.update()
         anbo.draw(screen)
