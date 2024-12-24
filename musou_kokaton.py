@@ -108,50 +108,28 @@ class Bird_Collide(pg.sprite.Sprite):
     """
     ゲームキャラクター（こうかとん）の当たり判定に関するクラス
     """
-    delta = {  # 押下キーと移動量の辞書 WASD式
-        pg.K_w: (0, -1),
-        pg.K_s: (0, +1),
-        pg.K_a: (-1, 0),
-        pg.K_d: (+1, 0),
-    }
-
     def __init__(self, num: int, xy: tuple[int, int]):
         """
-        こうかとん画像Surfaceを生成する
+        こうかとんの当たり判定Surfaceを生成する
         引数1 num：こうかとん画像ファイル名の番号
         引数2 xy：こうかとん画像の位置座標タプル
         """
         super().__init__()
-        rad = 10  # 当たり判定の半径：10以上50以下の乱数
+        rad = 5  # 当たり判定の半径：10以上50以下の乱数
         self.image = pg.Surface((2*rad, 2*rad))
         color = (255, 0, 0)  # 爆弾円の色：クラス変数からランダム選択
         pg.draw.circle(self.image, color, (rad, rad), rad)
+        self.image.set_alpha(128)
         self.image.set_colorkey((0, 0, 0))
         self.rect = self.image.get_rect()
-        self.rect.center = xy
-        self.speed = 10
 
-    def change_img(self, screen: pg.Surface):
+    def update(self, screen: pg.Surface, bird: Bird):
         """
-        当たり判定を表示する
+        当たり判定の位置を更新する
         引数1 screen：画面Surface
+        引数2 bird：こうかとん
         """
-        screen.blit(self.image, self.rect)
-
-    def update(self, key_lst: list[bool], screen: pg.Surface):
-        """
-        押下キーに応じてこうかとんと一緒に移動させる
-        引数1 key_lst：押下キーの真理値リスト
-        引数2 screen：画面Surface
-        """
-        sum_mv = [0, 0]
-        for k, mv in __class__.delta.items():
-            if key_lst[k]:
-                sum_mv[0] += mv[0]
-                sum_mv[1] += mv[1]
-        self.rect.move_ip(self.speed*sum_mv[0], self.speed*sum_mv[1])
-        if check_bound(self.rect) != (True, True):
-            self.rect.move_ip(-self.speed*sum_mv[0], -self.speed*sum_mv[1])
+        self.rect.center = bird.rect.center
         screen.blit(self.image, self.rect)
 
 
@@ -159,7 +137,6 @@ class Bullet(pg.sprite.Sprite):
     """
     爆弾に関するクラス
     """
-    colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (255, 0, 255), (0, 255, 255)]
 
     def __init__(self, emy: "Enemy", bird: Bird):
         """
@@ -170,7 +147,7 @@ class Bullet(pg.sprite.Sprite):
         super().__init__()
         rad = random.randint(10, 50)  # 爆弾円の半径：10以上50以下の乱数
         self.image = pg.Surface((2*rad, 2*rad))
-        color = random.choice(__class__.colors)  # 爆弾円の色：クラス変数からランダム選択
+        color = (0, 255, 0)  # 爆弾円の色：クラス変数からランダム選択
         pg.draw.circle(self.image, color, (rad, rad), rad)
         self.image.set_colorkey((0, 0, 0))
         self.rect = self.image.get_rect()
@@ -659,7 +636,7 @@ def main():
             return
 
         bird.update(key_lst, screen)
-        collider.update(key_lst, screen)
+        collider.update(screen, bird)
         beams.update()
         beams.draw(screen)
         bombs.update()
