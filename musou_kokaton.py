@@ -212,6 +212,33 @@ class Fall(pg.sprite.Sprite):
             self.kill()
 
 
+class Razer(pg.sprite.Sprite):
+    def __init__(self, length=800, width=20, color=(255, 0, 0)):
+        super().__init__()
+        self.length = length
+        self.width = width
+        self.color = color
+        self.image = pg.Surface((length, width), pg.SRCALPHA)
+        pg.draw.rect(self.image, color, (0, 0, length, width))
+        self.orig_image = self.image
+        self.rect = self.image.get_rect(center=(WIDTH//2, HEIGHT//2))
+        self.angle = 0
+        self.rotation_speed = 2
+        self.timer = 0
+        self.mask = pg.mask.from_surface(self.image)
+
+    def update(self):
+        self.angle += self.rotation_speed
+        self.angle %= 360
+        self.image = pg.transform.rotate(self.orig_image, -self.angle)
+        self.rect = self.image.get_rect(center=(WIDTH//2, HEIGHT//2))
+        self.mask = pg.mask.from_surface(self.image)
+        self.timer += 1
+        if self.timer >= 50:  # 1秒間表示（50フレーム）
+            self.kill()  # razerを消す
+
+
+
 class Beam(pg.sprite.Sprite):
     """
     ビームに関するクラス
@@ -319,11 +346,11 @@ class HP(pg.sprite.Sprite):
         self.bar = pg.Rect(self.x + 4 + self.label.get_width(), self.y + 2, self.width - 4, self.label.get_height() - 4)
         self.value = pg.Rect(self.x + 4 + self.label.get_width(), self.y + 2, self.width - 4, self.label.get_height() - 4)
         self.value.width = (self.width - 4) * (self.hp / self.max)
-        self.kawata = False
+        self.kawata = True
         if self.hp <= 0:
             self.victory = True
-        if self.hp / self.max <= 0.3:    #3割り切ったら河田担当
-            self.kawata = True
+        # if self.hp / self.max <= 0.3:    #3割り切ったら河田担当
+        #     self.kawata = True
 
     def hp_draw(self, screen):
         """
@@ -347,17 +374,17 @@ class HP(pg.sprite.Sprite):
 def main():
     pg.display.set_caption("真！こうかとん無双")
     screen = pg.display.set_mode((WIDTH, HEIGHT))
-    bg_img = pg.image.load(f"fig/background01.png")  # デフォルトではpb_bg.jpg
-
-    bird = Bird(3, (WIDTH/2, HEIGHT-100))  # こうかとん出現場所
+    bg_img = pg.image.load(f"fig/background01.png")
+    bird = Bird(3, (WIDTH/2, HEIGHT-100))
     bombs = pg.sprite.Group()
     beams = pg.sprite.Group()
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
     anbo = pg.sprite.Group()
     falls = pg.sprite.Group()
-    max_hp = 1000  #敵機の最大HP
-    hp=max_hp  #現在の敵機のHP
+    razers = pg.sprite.Group()
+    max_hp = 1000
+    hp = max_hp
 
     tmr = 0
     clock = pg.time.Clock()
@@ -371,37 +398,53 @@ def main():
                 beams.add(Beam(bird))
         screen.blit(bg_img, [0, 0])
 
-        if tmr == 0:  # 200フレームに敵を出現させる
+        if tmr == 0:
             emys.add(Enemy())
 
         for emy in emys:
-            percent = random.random()
-            if percent < 0.025:
-                fall = Fall()  # 縦に降ってくる弾
-                bombs.add(fall)  # bombsグループに追加
-            if emy.state == "stop" and tmr%emy.interval == 0:
-                # 敵機が停止状態に入ったら，intervalに応じて爆弾投下
+            if emy.state == "stop" and tmr % emy.interval == 0:
                 if hp_bar.kawata:
+                    if random.random() < 0.025:
+                        fall = Fall()
+                        bombs.add(fall)
+                    if random.random() < 0.5 and len(razers) == 0:  # 2%の確率でレーザーを生成（既存のレーザーがない場合）
+                        razers.add(Razer())
                     for i in range(30):
                         bombs.add(AngleBomb(emy, bird, i*12))
-                    bombs.add(Bullet(emy,bird))
+                    bombs.add(Bullet(emy, bird))
                 else:
-                    bombs.add(Bullet(emy,bird))
+                    bombs.add(Bullet(emy, bird))
 
-        for emy in pg.sprite.groupcollide(emys, beams, False, True).keys():  # ビームと衝突した敵機リスト
+        for emy in pg.sprite.groupcollide(emys, beams, False, True).keys():
             hp -= 10
             if hp <= 0:
                 hp_bar.victory = True
-            bird.change_img(6, screen)  # こうかとん喜びエフェクト
+            bird.change_img(6, screen)
 
-        for bomb in pg.sprite.spritecollide(bird, bombs, True):  # こうかとんと衝突した爆弾リスト
-            bird.change_img(8, screen)  # こうかとん悲しみエフェクト
+        for razer in razers:
+            if pg.sprite.collide_mask(bird, razer):  # マスクを使用した衝突判定
+                bird.change_img(8, screen)
+                exps.add(Explosion(bird, 50))
+                pg.display.update()
+                time.sleep(2)
+                return
+
+        for bomb in pg.sprite.spritecollide(bird, bombs, True):
+            bird.change_img(8, screen)
+            exps.add(Explosion(bird, 50))
             pg.display.update()
             time.sleep(2)
             return
         
-        if hp_bar.victory:#HPが0の時
-            bird.change_img(6, screen)  # こうかとん悲しみエフェクト
+        if pg.sprite.spritecollide(bird, razers, False):  # レーザーとの衝突判定
+            bird.change_img(8, screen)
+            exps.add(Explosion(bird, 50))
+            pg.display.update()
+            time.sleep(2)
+            return
+
+        if hp_bar.victory:
+            bird.change_img(6, screen)
             pg.display.update()
             time.sleep(2)
             return
@@ -414,6 +457,8 @@ def main():
         exps.update()
         exps.draw(screen)
         hp_bar.hp_draw(screen)
+        razers.update()
+        razers.draw(screen)
         anbo.update()
         anbo.draw(screen)
         falls.update()
@@ -423,7 +468,6 @@ def main():
         pg.display.update()
         tmr += 1
         clock.tick(50)
-
 
 if __name__ == "__main__":
     pg.init()
