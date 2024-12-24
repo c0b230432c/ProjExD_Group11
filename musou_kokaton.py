@@ -216,7 +216,7 @@ class Fall(pg.sprite.Sprite):
         上から降ってくる爆弾を生成する関数
         """
         super().__init__()
-        rad = 15    # 爆弾円の半径：25
+        rad = 20    # 爆弾円の半径：20
         self.image = pg.Surface((2*rad, 2*rad))
         color = (255, 255, 0)  # 爆弾円の色：クラス変数からランダム選択
         pg.draw.circle(self.image, color, (rad, rad), rad)
@@ -533,6 +533,10 @@ def main():
                 beams.add(Beam(bird))
             if event.type == pg.KEYDOWN and event.key == pg.K_RSHIFT and special.lives > 0: # Bキーで必殺技発動
                 special.use(bombs, free_bullets, screen)
+            if event.type == pg.KEYDOWN and event.key == pg.K_UP:
+                bird.speed = 5
+            if event.type == pg.KEYUP and event.key == pg.K_UP:
+                bird.speed = 10
 
         screen.blit(bg_img, [0, 0])
 
@@ -596,7 +600,7 @@ def main():
 
         for emy in emys:
             if hp_bar.kawata:
-                    if random.random() < 0.05:
+                    if random.random() < 0.15:
                         fall = Fall()  # 縦に降ってくる弾
                         bombs.add(fall)  # bombsグループに追加
             if emy.state == "stop" and tmr%emy.interval == 0:
