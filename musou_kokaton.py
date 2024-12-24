@@ -501,7 +501,7 @@ class Special:
 
 
 def main():
-    pg.display.set_caption("真！こうかとん無双")
+    pg.display.set_caption("こうかとん弾幕ゲーム【難～爆】")
     screen = pg.display.set_mode((WIDTH, HEIGHT))
     bg_img = pg.image.load(f"fig/background01.png")  # デフォルトではpb_bg.jpg
     special = Special()  # 必殺技管理クラス
@@ -515,7 +515,7 @@ def main():
     emys = pg.sprite.Group()
     anbo = pg.sprite.Group()
     falls = pg.sprite.Group()
-    max_hp = 1000  #敵機の最大HP
+    max_hp = 2000  #敵機の最大HP
     hp=max_hp  #現在の敵機のHP
     zanki = 3  #残機
 
@@ -531,11 +531,11 @@ def main():
                 return 0
             if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
                 beams.add(Beam(bird))
-            if event.type == pg.KEYDOWN and event.key == pg.K_RSHIFT and special.lives > 0: # Bキーで必殺技発動
+            if event.type == pg.KEYDOWN and event.key == pg.K_b and special.lives > 0: # Bキーで必殺技発動
                 special.use(bombs, free_bullets, screen)
-            if event.type == pg.KEYDOWN and event.key == pg.K_UP:
+            if event.type == pg.KEYDOWN and event.key == pg.K_n:
                 bird.speed = 5
-            if event.type == pg.KEYUP and event.key == pg.K_UP:
+            if event.type == pg.KEYDOWN and event.key == pg.K_m:
                 bird.speed = 10
 
         screen.blit(bg_img, [0, 0])
@@ -600,7 +600,7 @@ def main():
 
         for emy in emys:
             if hp_bar.kawata:
-                    if random.random() < 0.25:
+                    if random.random() < 0.3:
                         fall = Fall()  # 縦に降ってくる弾
                         bombs.add(fall)  # bombsグループに追加
             if emy.state == "stop" and tmr%emy.interval == 0:
