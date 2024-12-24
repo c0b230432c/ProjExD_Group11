@@ -11,7 +11,22 @@ HEIGHT = 700  # ゲームウィンドウの高さ
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 
-#### 小林担当部分 画面脇に湧く敵性オブジェクト
+# #### 小林担当部分 画面脇に湧く敵性オブジェクト
+# class GutterLaser(pg.sprite.Sprite):
+#     """
+#     GutterEnemyクラスで生成されるlaserの当たり判定を担う。
+#     どうやらpygameでは細長い画像を斜めにしてcolliderectすると、
+#     細長い画像を対角線とした長方形/正方形を当たり判定として使ってしまうらしい。
+#     その対策として、小さな正方形の当たり判定をlaserの画像上に並べればよい。
+#     """
+#     def __init__(self, xspawn, yspawn, colsize):
+#         self.laser_colid = pg.transform.scale(pg.image.load("fig/miyasui_gazou.png"), (colsize, colsize))
+#         self.xyspawn = (xspawn, yspawn)
+#         self.laser_colid_rct = self.laser_colid.get_rect()
+#         self.laser_colid_rct.center = self.xyspawn
+#         print(9999999999999)
+
+
 class GutterEnemy(pg.sprite.Sprite):
     """
     端にスポーンする敵性オブジェクトの描画と攻撃
@@ -22,13 +37,20 @@ class GutterEnemy(pg.sprite.Sprite):
         敵性オブジェクトのスポーンに伴う処理と描画
         """
         super().__init__()
-        spawn_points = [20, WIDTH-20, 20, 130, 200]
+        spawn_x = [20, WIDTH-20]
+        spawn_y = [50, 130, 200]
         self.life = 200  
-        select_x = random.randint(0,1)
-        select_y = random.randint(2,4)
-
-        self.spawn_xy = tuple([spawn_points[select_x], spawn_points[select_y]])
-        self.ge_img = pg.image.load("fig/miyasui_gazou.png")  # 後ほど画像変更
+        select_x = spawn_x[random.randint(0,1)]
+        select_y = spawn_y[random.randint(0,2)]
+        self.sideFlag = "none"
+        self.laser_size = 500   # レーザーの大きさを調整できる
+        self.colsize = 10  # 当たり判定の正方形のサイズ
+        self.laser_divide = 20  # レーザーの当たり判定を何個の正方形に置き換えるか
+        self.lasercolid_xyspawns = []
+        self.colist = []
+        self.collideList = []
+        self.spawn_xy = tuple([select_x, select_y])
+        self.ge_img = pg.image.load("fig/miyasui_gazou2.png")  # 後ほど画像変更
         self.ge_img.convert_alpha()  # ピクセル単位で透明度を有効
 
         if self.spawn_xy[0] == WIDTH-20:
@@ -39,67 +61,104 @@ class GutterEnemy(pg.sprite.Sprite):
             self.ge_img = pg.transform.scale(pg.transform.rotate(self.ge_img, 45), (100, 100))
             # 左側に湧く敵を中央へ向くように斜めにして縮小する
             self.sideFlag = "left"
-        self.rect = self.ge_img.get_rect()
-        self.rect.center = self.spawn_xy
+
+        self.ge_rct = self.ge_img.get_rect()
+        self.ge_rct.center = self.spawn_xy
 
         # 攻撃処理に関するゾーン
-        self.fire_chance = False  # 発砲中フラグ
-        self.fire_timing = random.randint(10, self.life-50)  # 発砲タイミングの設定(生後10~(寿命-50))
+        self.fireing = False  # 発砲中フラグ
+        self.fire_time = 190 # random.randint(15, self.life-30)  # 発砲タイミングの設定(生後15~(寿命-30))
+
+        self.yokoyari_img = pg.transform.scale(pg.image.load("fig/clear_pic.png"), (self.laser_size, self.laser_size))
+        # self.yokoyari_img.convert_alpha()
+        # self.flare_rct = self.flare_img.get_rect()
+        self.yokoyari_rct = self.yokoyari_img.get_rect()
+
+        self.calc_xyspawns(self.sideFlag, self.colsize)
+
         # 攻撃描写に関するゾーン
         # self.flare_img = pg.transform.scale(pg.image.load("fig/flare_cross.png"), (20, 20))
         # self.flare_img.convert_alpha()
-        self.yokoyari_img = pg.transform.scale(pg.image.load("fig/simplelaser.png"), (100, 100))
-        self.yokoyari_img.convert_alpha()
-        # self.flare_rct = self.flare_img.get_rect()
-        self.yokoyari_rct = self.yokoyari_img.get_rect()
+        
 
         # self.d_angle = [3, 20, 45, 60, 20, 5, 1]
         # self.num = 0
-        
-
-    def fire(self):
-        """
-        攻撃を行う描写と攻撃処理に関するメソッド
-        """
-        # 攻撃描写 使徒の攻撃をイメージ⊕ =======
-        angle = 40.0 
-        # self.flare_img = pg.transform.rotate(pg.image.load("fig/flare_cross.png", (20, 20)), angle)  # 攻撃のエフェクト
-        self.yokoyari_img = pg.transform.rotate(pg.image.load("fig/clear_pic.png"), 45)   # 空の画像
-        # self.flare_rct = self.flare_img.get_rect()
-        self.yokoyari_rct = self.yokoyari_img.get_rect()
-        
-        
-        # angle += 5 + self.d_angle[self.num]  # updateごとに何度回転するのかを決めてangle更新
-        # self.num += 1 # 次にangleに足す数そのものを更新
-
-        # 攻撃処理
-        # 衝突判定をmainに追加
-        #  
-
-        if angle >= 400:  # 終了条件
-            self.fire_chance = False
+    
+    def calc_xyspawns(self, sideFlag, colsize):
+        side = sideFlag
+        num = self.laser_divide
+        if side == "right":
+            bottomleft = self.yokoyari_rct.bottomleft
+            # 下から1個目の四角
+            temp = bottomleft[0], bottomleft[1]
+            x = temp[0] + colsize/2
+            y = temp[1] - colsize/2
+            temp = x, y
+            self.lasercolid_xyspawns.append((x, y))
+            # 下から2個目以降、右上へ続く四角たち
+            for i in range(num-1):
+                x = temp[0] + colsize/2
+                y = temp[1] - colsize/2
+                temp = (x, y)
+                self.lasercolid_xyspawns.append((x, y))
             
+            
+        elif side == "left":
+            bottomright = self.yokoyari_rct.bottomright
+            # 下から1個目の四角
+            temp = bottomright[0], bottomright[1]
+            x = temp[0] - colsize/2
+            y = temp[1] - colsize/2
+            temp = x, y
+            self.lasercolid_xyspawns.append((x, y))
+            # 下から2個目以降、左上へ続く四角たち
+            for i in range(num-1):
+                x = temp[0] - colsize/2
+                y = temp[1] - colsize/2
+                temp = (x, y)
+                self.lasercolid_xyspawns.append((x, y))
+            
+    def createCol(self, xspawn, yspawn, colsize):
+        self.laser_colid = pg.transform.scale(pg.image.load("fig/miyasui_gazou.png"), (colsize, colsize))
+        self.xyspawn = (xspawn, yspawn)
+        self.laser_colid_rct = self.laser_colid.get_rect()
+        self.laser_colid_rct.center = self.xyspawn
 
+        return self.laser_colid_rct
+
+    # def getCollisionList(self):
+    #     return self.colist
+        
     def update(self, screen):
-        screen.blit(self.ge_img, self.rect)  # 敵性オブジェクトの描画
-        if self.fire_timing == self.life:
-            self.fire_chance = True
+        screen.blit(self.ge_img, self.ge_rct)  # 敵性オブジェクトの描画
+        if self.fire_time == self.life:  # 攻撃時間と寿命カウントが同じだったら
+            self.fireing = True  # 発砲中をTrueにする
 
-        if self.fire_chance:  # 発砲中であれば寿命関連処理を行わない。
-            if self.sideFlag == "right":
-                self.yokoyari_img = pg.transform.rotate(pg.image.load("fig/clear_pic.png"), 45)   # 攻撃の画像を設定
+        if self.fireing:  # 
+            # print(11111111111)
+            if self.sideFlag == "right":  # 画像の左右反転など
+                self.yokoyari_img = pg.transform.rotate(pg.image.load("fig/simplelaser.png"), 45)   # 攻撃の画像を設定
             elif self.sideFlag == "left":
-                self.yokoyari_img = pg.transform.rotate(pg.image.load("fig/clear_pic.png"), 135)   # 攻撃の画像を設定
-            self.fire()
+                self.yokoyari_img = pg.transform.rotate(pg.image.load("fig/simplelaser.png"), 135)  # 攻撃の画像を設定
+            self.yokoyari_img = pg.transform.scale(self.yokoyari_img, (self.laser_size, self.laser_size))
+            self.yokoyari_rct = self.yokoyari_img.get_rect()
+            self.yokoyari_img.convert_alpha()
 
-        elif self.fire_chance != True:  # 発砲中でなければ寿命を減らす
-            self.life -= 1
+            # laserの当たり判定を生成
+            for i in range(self.laser_divide):
+                self.collideList.append(self.createCol(self.lasercolid_xyspawns[i][0], self.lasercolid_xyspawns[i][1], self.colsize))
+                
+        if self.sideFlag == "right":
+            self.yokoyari_rct.center = tuple([self.spawn_xy[0]-self.laser_size/2-20, self.spawn_xy[1]+self.laser_size/2+20])
+        elif self.sideFlag == "left":
+            self.yokoyari_rct.center = tuple([self.spawn_xy[0]+self.laser_size/2+20, self.spawn_xy[1]+self.laser_size/2+20])
 
-        elif self.life <= 0:  # 消滅処理
+        if self.fireing:
+            screen.blit(self.yokoyari_img, self.yokoyari_rct)  # 光線
+        self.life -= 1
+        if self.life <= 0:  # 消滅処理
+            # print("Gutter Enemy killed")
             self.kill()
-
-        screen.blit(self.yokoyari_img, self.yokoyari_rct)  # 光線
-        # screen.blit(self.flare_img, self.flare_rct)  # 輝き
 
 
 
@@ -195,7 +254,7 @@ class Bird(pg.sprite.Sprite):
             self.image = self.imgs[self.dire]
         screen.blit(self.image, self.rect)
 
-
+        
 class Bullet(pg.sprite.Sprite):
     """
     爆弾に関するクラス
@@ -389,10 +448,13 @@ def main():
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
     gutters = pg.sprite.Group() # 小林担当部分
+    glasers = pg.sprite.Group()
     max_hp = 200  #敵機の最大HP
     hp=max_hp  #現在の敵機のHP
+    
 
-    tmr = 0
+    tmr = 1 
+    # print(len(gutters),471)
     clock = pg.time.Clock()
     while True:
         hp_bar = HP(WIDTH - 250, 20, 200, hp, max_hp)
@@ -407,9 +469,31 @@ def main():
         if tmr == 200:  # 200フレームに敵を出現させる
             emys.add(Enemy())
 
-        if tmr == 70:  # 小林担当部分 # 70フレームで敵を出現させる
+        if tmr % 200 == 0:  # 小林担当部分 # 541フレーム間隔で敵を出現させる
             gutters.add(GutterEnemy())
 
+        for gutter in gutters:
+            if gutter.fireing:
+                # print("Fireing")
+                for j in range(len(gutter.collideList)):
+                    # print("collideList Cycle")
+                    if gutter.collideList[j].colliderect(bird):
+                        # print("COLLIDED")
+                        bird.change_img(8, screen)  # こうかとん悲しみエフェクト
+                        # score.update(screen)
+                        pg.display.update()
+                        time.sleep(2)
+                        return
+        
+
+        # for glaser_colid in glaser_colids:  # こうかとんと衝突したGutterEnemyリスト
+        #     if glaser_colid.colliderect(bird):
+        #         bird.change_img(8, screen)  # こうかとん悲しみエフェクト
+        #         # score.update(screen)
+        #         pg.display.update()
+        #         time.sleep(2)
+        #         return
+        
 
         for emy in emys:
             if emy.state == "stop" and tmr%emy.interval == 0:
@@ -454,8 +538,8 @@ def main():
         exps.draw(screen)
         # score.update(screen)
         hp_bar.hp_draw(screen)
-        gutters.update(screen) # 小林担当部分
-
+        if len(gutters) >= 1: # 小林部分
+            gutters.update(screen)
 
         pg.display.update()
         tmr += 1
