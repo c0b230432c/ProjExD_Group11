@@ -115,7 +115,7 @@ class Bird_Collide(pg.sprite.Sprite):
         引数2 xy：こうかとん画像の位置座標タプル
         """
         super().__init__()
-        rad = 5  # 当たり判定の半径：10以上50以下の乱数
+        rad = 10  # 当たり判定の半径：10以上50以下の乱数
         self.image = pg.Surface((2*rad, 2*rad))
         color = (255, 0, 0)  # 爆弾円の色：クラス変数からランダム選択
         pg.draw.circle(self.image, color, (rad, rad), rad)
@@ -214,13 +214,13 @@ class Fall(pg.sprite.Sprite):
         上から降ってくる爆弾を生成する関数
         """
         super().__init__()
-        rad = 20    # 爆弾円の半径：20
+        rad = 5    # 爆弾円の半径：20
         self.image = pg.Surface((2*rad, 2*rad))
         color = (255, 255, 0)  # 爆弾円の色：クラス変数からランダム選択
         pg.draw.circle(self.image, color, (rad, rad), rad)
         self.image.set_colorkey((0, 0, 0))
         self.rect = self.image.get_rect()
-        self.vx, self.vy = 0,6
+        self.vx, self.vy = random.randint(-6, 6),6
         self.rect.centerx = random.randint(rad, WIDTH - rad)
         self.rect.top = 0
         self.speed = 6
@@ -497,7 +497,7 @@ class Special:
 
 
 def main():
-    pg.display.set_caption("真！こうかとん無双")
+    pg.display.set_caption("こうかとん弾幕ゲーム【難～爆】")
     screen = pg.display.set_mode((WIDTH, HEIGHT))
     bg_img = pg.image.load(f"fig/background01.png")  # デフォルトではpb_bg.jpg
     special = Special()  # 必殺技管理クラス
@@ -511,7 +511,7 @@ def main():
     emys = pg.sprite.Group()
     anbo = pg.sprite.Group()
     falls = pg.sprite.Group()
-    max_hp = 1000  #敵機の最大HP
+    max_hp = 2000  #敵機の最大HP
     hp=max_hp  #現在の敵機のHP
     zanki = 3  #残機
 
@@ -527,11 +527,11 @@ def main():
                 return 0
             if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
                 beams.add(Beam(bird))
-            if event.type == pg.KEYDOWN and event.key == pg.K_RSHIFT and special.lives > 0: # Bキーで必殺技発動
+            if event.type == pg.KEYDOWN and event.key == pg.K_b and special.lives > 0: # Bキーで必殺技発動
                 special.use(bombs, free_bullets, screen)
-            if event.type == pg.KEYDOWN and event.key == pg.K_UP:
+            if event.type == pg.KEYDOWN and event.key == pg.K_n:
                 bird.speed = 5
-            if event.type == pg.KEYUP and event.key == pg.K_UP:
+            if event.type == pg.KEYDOWN and event.key == pg.K_m:
                 bird.speed = 10
 
         screen.blit(bg_img, [0, 0])
@@ -596,14 +596,14 @@ def main():
 
         for emy in emys:
             if hp_bar.kawata:
-                    if random.random() < 0.15:
+                    if random.random() < 0.3:
                         fall = Fall()  # 縦に降ってくる弾
                         bombs.add(fall)  # bombsグループに追加
             if emy.state == "stop" and tmr%emy.interval == 0:
                 # 敵機が停止状態に入ったら，intervalに応じて爆弾投下
                 if hp_bar.kawata:
-                    for i in range(30):
-                        bombs.add(AngleBomb(emy, collider, i*12))
+                    for i in range(36):
+                        bombs.add(AngleBomb(emy, collider, i*10))
                     bombs.add(Bullet(emy, collider))
                 else:
                     bombs.add(Bullet(emy, collider))
