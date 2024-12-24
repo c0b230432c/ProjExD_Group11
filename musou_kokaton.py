@@ -1,4 +1,4 @@
-# import cv2
+import cv2
 import math
 import numpy as np
 import os
@@ -143,7 +143,6 @@ class AngleBomb(pg.sprite.Sprite):
     """
     角度付き爆弾のクラス
     """
-    colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (255, 0, 255), (0, 255, 255)]
 
     def __init__(self, emy: "Enemy", bird: Bird, angle: int):
         """
@@ -155,7 +154,7 @@ class AngleBomb(pg.sprite.Sprite):
         super().__init__()
         rad = 10  # 爆弾円の半径：10以上50以下の乱数
         self.image = pg.Surface((2*rad, 2*rad))
-        color = random.choice(__class__.colors)  # 爆弾円の色：クラス変数からランダム選択
+        color = (0, 255, 255)  # 爆弾円の色：クラス変数からランダム選択
         pg.draw.circle(self.image, color, (rad, rad), rad)
         self.image.set_colorkey((0, 0, 0))
         self.rect = self.image.get_rect()
@@ -168,17 +167,14 @@ class AngleBomb(pg.sprite.Sprite):
         self.res = np.dot(rot, vector) 
         self.rect.centerx = emy.rect.centerx
         self.rect.centery = emy.rect.centery+emy.rect.height//2
-        self.speed = 6
-        self.vx, self.vy = calc_orientation(emy.rect, bird.rect)  
-        self.rect.centerx = emy.rect.centerx
-        self.rect.centery = emy.rect.centery+emy.rect.height//2
+        self.vx, self.vy = self.res
         self.speed = 6
 
     def update(self):
         """
         爆弾を計算した速度ベクトルself.resに基づき移動させる
         """
-        self.rect.move_ip(self.speed*self.res[0], self.speed*self.res[1])
+        self.rect.move_ip(self.speed*self.vx, self.speed*self.vy)
         if check_bound(self.rect) != (True, True):
             self.kill()
 
@@ -187,15 +183,14 @@ class Fall(pg.sprite.Sprite):
     """
     縦に振ってくる爆弾のクラス
     """
-    colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (255, 0, 255), (0, 255, 255)]
     def __init__(self):
         """
         上から降ってくる爆弾を生成する関数
         """
         super().__init__()
-        rad = 25  # 爆弾円の半径：25
+        rad = 15    # 爆弾円の半径：25
         self.image = pg.Surface((2*rad, 2*rad))
-        color = random.choice(__class__.colors)  # 爆弾円の色：クラス変数からランダム選択
+        color = (255, 255, 0)  # 爆弾円の色：クラス変数からランダム選択
         pg.draw.circle(self.image, color, (rad, rad), rad)
         self.image.set_colorkey((0, 0, 0))
         self.rect = self.image.get_rect()
@@ -570,16 +565,11 @@ def main():
                     free_bullets.add(FreeBullet(WIDTH-150 , 150, vector, (255, 255, 255), 5))
             second_tmr += 1
 
-        else:
-            for emy in emys:
-                if emy.state == "stop" and tmr%emy.interval == 0:
-                    # 敵機が停止状態に入ったら，intervalに応じて爆弾投下
-                    bombs.add(Bullet(emy, bird))
         for emy in emys:
-            percent = random.random()
-            if percent < 0.025:
-                fall = Fall()  # 縦に降ってくる弾
-                bombs.add(fall)  # bombsグループに追加
+            if hp_bar.kawata:
+                    if random.random() < 0.05:
+                        fall = Fall()  # 縦に降ってくる弾
+                        bombs.add(fall)  # bombsグループに追加
             if emy.state == "stop" and tmr%emy.interval == 0:
                 # 敵機が停止状態に入ったら，intervalに応じて爆弾投下
                 if hp_bar.kawata:
@@ -593,7 +583,14 @@ def main():
             hp -= 10
             if hp <= 0:
                 hp_bar.victory = True
-            bird.change_img(6, screen)  # こうかとん喜びエフェクト
+
+        for bomb in pg.sprite.spritecollide(bird, bombs, True):  # こうかとんと衝突した弾幕リスト
+            zanki -= 1
+            if zanki <= 0:
+                bird.change_img(8, screen)  # こうかとん悲しみエフェクト
+                pg.display.update()
+                time.sleep(2)
+                return
 
         for bomb in pg.sprite.spritecollide(bird, free_bullets, True):  # こうかとんと衝突した弾幕リスト
             zanki -= 1
@@ -604,7 +601,7 @@ def main():
                 return
         
         if hp_bar.victory:#HPが0の時
-            bird.change_img(6, screen)  # こうかとん悲しみエフェクト
+            bird.change_img(6, screen)  # こうかとん喜びエフェクト
             pg.display.update()
             time.sleep(2)
             return
@@ -618,7 +615,6 @@ def main():
         free_bullets.draw(screen)
         exps.update()
         exps.draw(screen)
-        # score.update(screen)
         special.update(screen)
         zankis.update(screen)
         hp_bar.hp_draw(screen)
