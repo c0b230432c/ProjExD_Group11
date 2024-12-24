@@ -137,7 +137,6 @@ class Bullet(pg.sprite.Sprite):
     """
     爆弾に関するクラス
     """
-
     def __init__(self, emy: "Enemy", bird: Bird):
         """
         爆弾円Surfaceを生成する
@@ -171,7 +170,6 @@ class AngleBomb(pg.sprite.Sprite):
     """
     角度付き爆弾のクラス
     """
-
     def __init__(self, emy: "Enemy", bird: Bird, angle: int):
         """
         爆弾円Surfaceを生成する
@@ -240,7 +238,6 @@ class FreeBullet(pg.sprite.Sprite):
     """
     弾幕に関するクラス
     """
-
     def __init__(self, x: int, y: int, vector: tuple, color: tuple, rad: int):
         """
         弾幕円Surfaceを生成する
@@ -337,7 +334,6 @@ class Enemy(pg.sprite.Sprite):
     """
     敵機に関するクラス
     """
-
     def __init__(self):
         super().__init__()
         self.image = pg.transform.rotozoom(pg.image.load(f"fig/E_2.png"), 0, 0.2)
@@ -358,6 +354,7 @@ class Enemy(pg.sprite.Sprite):
             self.vy = 0
             self.state = "stop"
         self.rect.move_ip(self.vx, self.vy)
+
 
 class Score:
     """
@@ -460,12 +457,14 @@ class Special:
         self.image = self.font.render(f"SPECIAL: {self.lives}", 0, self.color)
         self.rect = self.image.get_rect()
         self.rect.center = WIDTH - 100, HEIGHT - 50
+
     def update(self, screen: pg.Surface):
         """
         必殺技残機数を画面に表示
         """
         self.image = self.font.render(f"SPECIAL: {self.lives}", 0, self.color) # 残機更新のため必要
         screen.blit(self.image, self.rect)
+
     def use(self, bombs: pg.sprite.Group,free_bullets: pg.sprite.Group, screen: pg.Surface):
         """
         必殺技を使用し、爆弾をすべて消去
@@ -476,7 +475,6 @@ class Special:
             bombs.empty() # 爆弾をすべて消去
             free_bullets.empty() # 弾幕をすべて消去
             
-
     def play_video(self, screen: pg.Surface):
         """
         ゲームを一時停止し、動画を再生
@@ -496,8 +494,6 @@ class Special:
             pg.time.delay(int(500 / 30)) # 30FPS
         cap.release() #動画ファイルを閉じる
     time.sleep(3) # ゲーム停止時間
-
-
 
 
 def main():
