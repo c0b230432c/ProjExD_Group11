@@ -11,6 +11,100 @@ HEIGHT = 700  # ゲームウィンドウの高さ
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 
+#### 小林担当部分 画面脇に湧く敵性オブジェクト
+class GutterEnemy(pg.sprite.Sprite):
+    """
+    端にスポーンする敵性オブジェクトの描画と攻撃
+    """
+    
+    def __init__(self):
+        """
+        敵性オブジェクトのスポーンに伴う処理と描画
+        """
+        super().__init__()
+        spawn_points = [20, WIDTH-20, 20, 130, 200]
+        self.life = 200  
+        select_x = random.randint(0,1)
+        select_y = random.randint(2,4)
+
+        self.spawn_xy = tuple([spawn_points[select_x], spawn_points[select_y]])
+        self.ge_img = pg.image.load("fig/miyasui_gazou.png")  # 後ほど画像変更
+        self.ge_img.convert_alpha()  # ピクセル単位で透明度を有効
+
+        if self.spawn_xy[0] == WIDTH-20:
+            self.ge_img = pg.transform.scale(pg.transform.flip(pg.transform.rotate(self.ge_img, 45), True, False), (100, 100))
+            # 右側に湧く敵を中央へ向くように斜めにして縮小する
+            self.sideFlag = "right"
+        else:
+            self.ge_img = pg.transform.scale(pg.transform.rotate(self.ge_img, 45), (100, 100))
+            # 左側に湧く敵を中央へ向くように斜めにして縮小する
+            self.sideFlag = "left"
+        self.rect = self.ge_img.get_rect()
+        self.rect.center = self.spawn_xy
+
+        # 攻撃処理に関するゾーン
+        self.fire_chance = False  # 発砲中フラグ
+        self.fire_timing = random.randint(10, self.life-50)  # 発砲タイミングの設定(生後10~(寿命-50))
+        # 攻撃描写に関するゾーン
+        # self.flare_img = pg.transform.scale(pg.image.load("fig/flare_cross.png"), (20, 20))
+        # self.flare_img.convert_alpha()
+        self.yokoyari_img = pg.transform.scale(pg.image.load("fig/simplelaser.png"), (100, 100))
+        self.yokoyari_img.convert_alpha()
+        # self.flare_rct = self.flare_img.get_rect()
+        self.yokoyari_rct = self.yokoyari_img.get_rect()
+
+        # self.d_angle = [3, 20, 45, 60, 20, 5, 1]
+        # self.num = 0
+        
+
+    def fire(self):
+        """
+        攻撃を行う描写と攻撃処理に関するメソッド
+        """
+        # 攻撃描写 使徒の攻撃をイメージ⊕ =======
+        angle = 40.0 
+        # self.flare_img = pg.transform.rotate(pg.image.load("fig/flare_cross.png", (20, 20)), angle)  # 攻撃のエフェクト
+        self.yokoyari_img = pg.transform.rotate(pg.image.load("fig/clear_pic.png"), 45)   # 空の画像
+        # self.flare_rct = self.flare_img.get_rect()
+        self.yokoyari_rct = self.yokoyari_img.get_rect()
+        
+        
+        # angle += 5 + self.d_angle[self.num]  # updateごとに何度回転するのかを決めてangle更新
+        # self.num += 1 # 次にangleに足す数そのものを更新
+
+        # 攻撃処理
+        # 衝突判定をmainに追加
+        #  
+
+        if angle >= 400:  # 終了条件
+            self.fire_chance = False
+            
+
+    def update(self, screen):
+        screen.blit(self.ge_img, self.rect)  # 敵性オブジェクトの描画
+        if self.fire_timing == self.life:
+            self.fire_chance = True
+
+        if self.fire_chance:  # 発砲中であれば寿命関連処理を行わない。
+            if self.sideFlag == "right":
+                self.yokoyari_img = pg.transform.rotate(pg.image.load("fig/clear_pic.png"), 45)   # 攻撃の画像を設定
+            elif self.sideFlag == "left":
+                self.yokoyari_img = pg.transform.rotate(pg.image.load("fig/clear_pic.png"), 135)   # 攻撃の画像を設定
+            self.fire()
+
+        elif self.fire_chance != True:  # 発砲中でなければ寿命を減らす
+            self.life -= 1
+
+        elif self.life <= 0:  # 消滅処理
+            self.kill()
+
+        screen.blit(self.yokoyari_img, self.yokoyari_rct)  # 光線
+        # screen.blit(self.flare_img, self.flare_rct)  # 輝き
+
+
+
+#### 小林担当部分 画面脇に湧く敵性オブジェクト
+
 def check_bound(obj_rct: pg.Rect) -> tuple[bool, bool]:
     """
     オブジェクトが画面内or画面外を判定し，真理値タプルを返す関数
@@ -294,6 +388,7 @@ def main():
     beams = pg.sprite.Group()
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
+    gutters = pg.sprite.Group() # 小林担当部分
     max_hp = 200  #敵機の最大HP
     hp=max_hp  #現在の敵機のHP
 
@@ -309,8 +404,12 @@ def main():
                 beams.add(Beam(bird))
         screen.blit(bg_img, [0, 0])
 
-        if tmr == 0:  # 200フレームに敵を出現させる
+        if tmr == 200:  # 200フレームに敵を出現させる
             emys.add(Enemy())
+
+        if tmr == 70:  # 小林担当部分 # 70フレームで敵を出現させる
+            gutters.add(GutterEnemy())
+
 
         for emy in emys:
             if emy.state == "stop" and tmr%emy.interval == 0:
@@ -355,6 +454,9 @@ def main():
         exps.draw(screen)
         # score.update(screen)
         hp_bar.hp_draw(screen)
+        gutters.update(screen) # 小林担当部分
+
+
         pg.display.update()
         tmr += 1
         clock.tick(50)
