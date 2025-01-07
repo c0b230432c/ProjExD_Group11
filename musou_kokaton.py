@@ -660,12 +660,17 @@ def main():
         for gutter in gutters:  # gutter
             if gutter.fireing:
                 for j in range(len(gutter.collideList)):  # 当たり判定リストの要素数の回数だけfor
-                    if gutter.collideList[j].colliderect(bird):  # こうかとんとlaserの衝突判定
-                        bird.change_img(8, screen)  # こうかとん悲しみエフェクト
-                        pg.display.update()
-                        time.sleep(2)
-                        return
-        
+                    if gutter.fireing == False:
+                        continue
+                    if gutter.collideList[j].colliderect(collider):  # こうかとんとlaserの衝突判定
+                        zanki -= 1
+                        if zanki <= 0:
+                            bird.change_img(8, screen)  # こうかとん悲しみエフェクト
+                            pg.display.update()
+                            time.sleep(2)
+                            return
+                        gutter.fireing = False
+         
         if 0.3 < hp / max_hp <= 0.6:
             #時間経過で出現する弾幕
             if second_tmr == 0:
@@ -796,6 +801,7 @@ def main():
         pg.display.update()
         tmr += 1
         clock.tick(50)
+        print(zanki)
         
 if __name__ == "__main__":
     pg.init()
