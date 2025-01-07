@@ -801,7 +801,6 @@ def main():
         pg.display.update()
         tmr += 1
         clock.tick(50)
-        print(zanki)
         
 if __name__ == "__main__":
     pg.init()
