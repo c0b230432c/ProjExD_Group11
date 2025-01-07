@@ -626,7 +626,7 @@ def main():
     falls = pg.sprite.Group()
     max_hp = 2000  #敵機の最大HP
     hp=max_hp  #現在の敵機のHP
-    zanki = 3  #残機
+    pre_zanki = zanki  #残機
 
     second_tmr = 0  #第二フェーズのタイマー
     tmr = 0
@@ -768,7 +768,7 @@ def main():
             bg_image.set_alpha(200)  #半透明にする
             bg_rect = bg_image.get_rect()
             clear_font = pg.font.Font(None, 50)
-            clear_image = clear_font.render(f"clear! death: {3-zanki}, use bomb:{3-special.lives}", 0, (255, 0, 0))
+            clear_image = clear_font.render(f"clear! death: {pre_zanki-zanki}, use bomb:{3-special.lives}", 0, (255, 0, 0))
             clear_rect = clear_image.get_rect()
             clear_rect.center = WIDTH/2, HEIGHT/2
             screen.blit(bg_image, bg_rect)
