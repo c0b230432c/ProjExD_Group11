@@ -58,3 +58,5 @@
 * 弾幕の種類
 * 共通で使用する変数の追加はdiscordで報告すること
 * すべてのクラスに関係する関数は，クラスの外で定義してある
+* pip install opencv-pythonの必要あり
+* pip install pygameの必要あり
